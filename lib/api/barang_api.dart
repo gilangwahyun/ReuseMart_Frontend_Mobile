@@ -138,4 +138,13 @@ class BarangApi {
       throw error;
     }
   }
+
+  Future<dynamic> getBarangByPenitip(int idPenitip) async {
+    try {
+      final response = await _apiService.get('$apiUrl/penitip/$idPenitip');
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
 }

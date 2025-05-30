@@ -5,7 +5,9 @@ import '../pages/auth/login_page.dart';
 import '../pages/client/home_page.dart';
 import '../pages/client/pembeli_profile_page.dart';
 import '../pages/client/penitip_profile_page.dart';
+import '../pages/client/penitip_home_page.dart';
 import '../pages/client/riwayat_transaksi_page.dart';
+import '../pages/client/barang_penitip_page.dart';
 import '../pages/info/informasi_umum_page.dart';
 import '../pages/splash_screen.dart';
 
@@ -19,6 +21,12 @@ class AppRoutes {
   static const String penitipProfile = '/penitip_profile';
   static const String riwayatTransaksi = '/riwayat_transaksi';
 
+  // Rute untuk Penitip
+  static const String penitipHome = '/penitip_home';
+  static const String penitipBarang = '/penitip_barang';
+  static const String riwayatPenitipan = '/riwayat_penitipan';
+  static const String pendapatanPenitip = '/pendapatan_penitip';
+
   // Fungsi untuk mendapatkan semua rute
   static Map<String, WidgetBuilder> getRoutes() {
     return {
@@ -29,6 +37,8 @@ class AppRoutes {
       pembeliProfile: (context) => const PembeliProfilePage(),
       penitipProfile: (context) => const PenitipProfilePage(),
       riwayatTransaksi: (context) => const RiwayatTransaksiPage(),
+      penitipHome: (context) => const PenitipHomePage(),
+      penitipBarang: (context) => const BarangPenitipPage(),
       // Tambahkan rute lain di sini
     };
   }
@@ -69,11 +79,20 @@ class AppRoutes {
     );
   }
 
-  // Fungsi untuk navigasi ke alur utama berdasarkan status login
-  static void navigateToMainFlow(BuildContext context, bool isLoggedIn) {
+  // Fungsi untuk navigasi ke alur utama berdasarkan status login dan role
+  static void navigateToMainFlow(
+    BuildContext context,
+    bool isLoggedIn, [
+    String? role,
+  ]) {
     if (isLoggedIn) {
-      // Jika sudah login, navigasi ke home
-      navigateAndClear(context, home);
+      // Jika sudah login, navigasi berdasarkan role
+      if (role == 'Penitip') {
+        navigateAndClear(context, penitipHome);
+      } else {
+        // Default untuk role Pembeli atau lainnya
+        navigateAndClear(context, home);
+      }
     } else {
       // Jika belum login, navigasi ke informasi umum
       navigateAndClear(context, informasiUmum);

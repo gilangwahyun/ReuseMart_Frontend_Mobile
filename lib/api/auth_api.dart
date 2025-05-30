@@ -74,6 +74,32 @@ class AuthApi {
     }
   }
 
+  // Force logout (tanpa memanggil API)
+  Future<void> forceLogout() async {
+    try {
+      // Hapus semua data yang tersimpan
+      await clearAllCacheData();
+      print("Force logout berhasil, semua cache dihapus");
+    } catch (e) {
+      print("Error saat force logout: $e");
+      throw e;
+    }
+  }
+
+  // Clear semua cache data
+  Future<void> clearAllCacheData() async {
+    try {
+      await LocalStorage.clearAllData();
+      // Tambahkan penghapusan spesifik untuk memastikan
+      await LocalStorage.removeData('id_penitip');
+      await LocalStorage.removeData('id_pembeli');
+      print("Semua data cache berhasil dihapus");
+    } catch (e) {
+      print("Error saat menghapus cache: $e");
+      throw e;
+    }
+  }
+
   // Get user profile
   Future<dynamic> getProfile() async {
     try {

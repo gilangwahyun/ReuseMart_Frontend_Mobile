@@ -60,16 +60,46 @@ class UserApi {
 
   Future<UserProfileModel> _getPenitipProfile(UserModel user) async {
     try {
+      print("Mencoba mendapatkan data penitip untuk user ID: ${user.idUser}");
       final response = await _apiService.get('penitip/user/${user.idUser}');
 
+      // Log respons lengkap untuk debugging
+      print("Respons dari API penitip/user/${user.idUser}: $response");
+
+      // Periksa format respons dengan lebih teliti
       if (response == null) {
+        print("Respons API null, menggunakan data user saja");
         return UserProfileModel(user: user);
       }
 
-      final PenitipModel penitip = PenitipModel.fromJson(response);
-      return UserProfileModel(user: user, penitip: penitip);
+      if (response is Map && response.containsKey('success')) {
+        // Format respons baru dengan field success
+        if (response['success'] == true && response.containsKey('data')) {
+          print("Data penitip ditemukan dengan format success:true");
+          final PenitipModel penitip = PenitipModel.fromJson(
+            response['data'] as Map<String, dynamic>,
+          );
+          return UserProfileModel(user: user, penitip: penitip);
+        } else {
+          print("Format respons valid tapi success:false atau data tidak ada");
+          return UserProfileModel(user: user);
+        }
+      } else if (response is Map) {
+        // Format respons lama (langsung object)
+        print(
+          "Data penitip ditemukan dengan format lama (tanpa success field)",
+        );
+        final PenitipModel penitip = PenitipModel.fromJson(
+          response as Map<String, dynamic>,
+        );
+        return UserProfileModel(user: user, penitip: penitip);
+      }
+
+      // Default fallback
+      return UserProfileModel(user: user);
     } catch (error) {
-      print("Get penitip profile error: $error");
+      print("Error mendapatkan profil penitip: $error");
+      // Tetap kembalikan model user meski tanpa data penitip
       return UserProfileModel(user: user);
     }
   }

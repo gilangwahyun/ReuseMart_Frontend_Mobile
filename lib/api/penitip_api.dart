@@ -33,6 +33,17 @@ class PenitipApi {
     }
   }
 
+  // Tampilkan penitip berdasarkan ID user
+  Future<dynamic> getPenitipByUserId(int idUser) async {
+    try {
+      final response = await _apiService.get('$apiUrl/user/$idUser');
+      return response;
+    } catch (error) {
+      print('Error saat mendapatkan penitip by user ID $idUser: $error');
+      throw error;
+    }
+  }
+
   // Update penitip
   Future<dynamic> updatePenitip(int id, Map<String, dynamic> data) async {
     try {

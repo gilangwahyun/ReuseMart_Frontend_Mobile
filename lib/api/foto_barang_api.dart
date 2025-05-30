@@ -29,9 +29,9 @@ class FotoBarangApi {
         return null;
       }
 
-      // Cari foto dengan is_thumbnail = true
+      // Cari foto dengan is_thumbnail = 1
       final thumbnail = fotos.firstWhere(
-        (foto) => foto.isThumbnail,
+        (foto) => foto.isThumbnail == 1,
         orElse: () => fotos.first, // Jika tidak ada, gunakan foto pertama
       );
 

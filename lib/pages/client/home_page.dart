@@ -189,6 +189,18 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _navigateToDetail(int idBarang) {
+    // Navigasi ke halaman detail barang
+    // Anda bisa menggunakan Navigator atau AppRoutes
+    // Contoh:
+    // Navigator.push(
+    //   context,
+    //   MaterialPageRoute(
+    //     builder: (context) => DetailBarangPage(idBarang: idBarang),
+    //   ),
+    // );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -325,7 +337,7 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
                     )
-                    : _buildBarangGrid(),
+                    : _buildProductGrid(),
           ),
         ],
       ),
@@ -497,57 +509,57 @@ class _HomePageState extends State<HomePage> {
     return Icons.category;
   }
 
-  Widget _buildBarangGrid() {
+  Widget _buildProductGrid() {
     return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.68,
+        childAspectRatio: 0.7,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
       itemCount: _barangList!.length,
       itemBuilder: (context, index) {
         final barang = _barangList![index];
-        final thumbnail = _thumbnails[barang.idBarang];
-
         return Card(
-          clipBehavior: Clip.antiAlias,
           elevation: 2,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: InkWell(
+            borderRadius: BorderRadius.circular(10),
             onTap: () {
-              // Navigate to barang detail
+              _navigateToDetail(barang.idBarang);
             },
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Stack(
                   children: [
-                    // Image
-                    SizedBox(
-                      height: 140,
-                      width: double.infinity,
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(10),
+                      ),
                       child:
-                          thumbnail != null
+                          barang.gambarUtama.isNotEmpty
                               ? Image.network(
-                                '$_baseUrl/${thumbnail.urlFoto}',
+                                barang.gambarUtama,
+                                height: 130,
+                                width: double.infinity,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  print('Error loading image: $error');
-                                  return Container(
-                                    color: Colors.grey.shade200,
-                                    child: Icon(
-                                      Icons.image_not_supported,
-                                      size: 40,
-                                      color: Colors.grey.shade500,
+                                errorBuilder:
+                                    (context, error, stackTrace) => Container(
+                                      height: 130,
+                                      color: Colors.grey.shade200,
+                                      child: Icon(
+                                        Icons.image_not_supported,
+                                        size: 40,
+                                        color: Colors.grey.shade500,
+                                      ),
                                     ),
-                                  );
-                                },
                               )
                               : Container(
+                                height: 130,
                                 color: Colors.grey.shade200,
                                 child: Icon(
                                   Icons.image_not_supported,
@@ -556,7 +568,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                     ),
-                    // Kondisi sebagai badge
+                    // Status barang sebagai badge
                     Positioned(
                       top: 8,
                       right: 8,
@@ -578,7 +590,7 @@ class _HomePageState extends State<HomePage> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              barang.kondisiBarang ?? 'Baik',
+                              'Baik', // Nilai default untuk kondisi barang
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -608,7 +620,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          barang.kategoriNama ?? 'Umum',
+                          barang.kategori?.namaKategori ?? 'Umum',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey.shade600,
@@ -635,8 +647,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  String _formatRupiah(int price) {
-    String priceStr = price.toString();
+  String _formatRupiah(double price) {
+    int priceInt = price.toInt(); // Konversi ke int
+    String priceStr = priceInt.toString();
     String result = '';
     int count = 0;
 

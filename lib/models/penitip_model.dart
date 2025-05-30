@@ -24,19 +24,42 @@ class PenitipModel {
   });
 
   factory PenitipModel.fromJson(Map<String, dynamic> json) {
-    return PenitipModel(
-      idPenitip: json['id_penitip'] ?? 0,
-      idUser: json['id_user'] ?? 0,
-      namaPenitip: json['nama_penitip'] ?? '',
-      nik: json['nik'] ?? '',
-      nomorKtp: json['nomor_ktp'],
-      fotoKtp: json['foto_ktp'],
-      noTelepon: json['no_telepon'] ?? '',
-      alamat: json['alamat'] ?? '',
-      saldo:
-          json['saldo'] != null ? double.parse(json['saldo'].toString()) : null,
-      jumlahPoin: json['jumlah_poin'],
-    );
+    try {
+      // Log untuk debugging
+      print("Parsing PenitipModel dari: ${json.keys.toList()}");
+
+      return PenitipModel(
+        idPenitip: json['id_penitip'] ?? 0,
+        idUser: json['id_user'] ?? 0,
+        namaPenitip: json['nama_penitip'] ?? '',
+        nik: json['nik'] ?? '',
+        nomorKtp: json['nomor_ktp'],
+        fotoKtp: json['foto_ktp'],
+        noTelepon: json['no_telepon'] ?? '',
+        alamat: json['alamat'] ?? '',
+        saldo:
+            json['saldo'] != null
+                ? double.parse(json['saldo'].toString())
+                : null,
+        jumlahPoin:
+            json['jumlah_poin'] is String
+                ? int.tryParse(json['jumlah_poin'])
+                : json['jumlah_poin'],
+      );
+    } catch (e) {
+      print("Error parsing PenitipModel: $e");
+      print("JSON data: $json");
+
+      // Fallback dengan nilai default untuk menghindari crash
+      return PenitipModel(
+        idPenitip: 0,
+        idUser: 0,
+        namaPenitip: 'Error: ${e.toString().substring(0, 20)}...',
+        nik: '',
+        noTelepon: '',
+        alamat: '',
+      );
+    }
   }
 
   Map<String, dynamic> toJson() {
