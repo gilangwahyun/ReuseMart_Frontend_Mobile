@@ -1,12 +1,58 @@
 import 'api_service.dart';
+import 'dart:convert';
 
 class PenitipApi {
   final ApiService _apiService = ApiService();
   final String apiUrl = '/penitip';
 
-  Future<dynamic> registerPenitip(Map<String, dynamic> data) async {
+  Future<dynamic> createPenitip(Map<String, dynamic> userData) async {
     try {
-      final response = await _apiService.post(apiUrl, data);
+      final response = await _apiService.post(apiUrl, userData);
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  Future<dynamic> getPenitip(int id) async {
+    try {
+      final response = await _apiService.get('$apiUrl/$id');
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  Future<dynamic> getPenitipByUserId(int idUser) async {
+    try {
+      print('Mencoba mendapatkan data penitip untuk user ID: $idUser');
+      final response = await _apiService.get('$apiUrl/user/$idUser');
+      print(
+        'Response dari API penitip/user/$idUser: ${response != null ? 'ditemukan' : 'null'}',
+      );
+
+      // Debugging response
+      if (response != null) {
+        print(
+          'Response keys: ${response is Map ? response.keys.toList() : 'bukan Map'}',
+        );
+        if (response is Map && response.containsKey('data')) {
+          print(
+            'Data keys: ${(response['data'] as Map?)?.keys.toList() ?? 'null'}',
+          );
+        }
+      }
+
+      return response;
+    } catch (error) {
+      print('Error saat mendapatkan penitip by user ID: $error');
+      throw error;
+    }
+  }
+
+  Future<dynamic> getPenitipanByPenitipId(int idPenitip) async {
+    try {
+      final response = await _apiService.get('$apiUrl/$idPenitip/penitipan');
       return response;
     } catch (error) {
       throw error;
@@ -29,17 +75,6 @@ class PenitipApi {
       final response = await _apiService.get('$apiUrl/$id');
       return response;
     } catch (error) {
-      throw error;
-    }
-  }
-
-  // Tampilkan penitip berdasarkan ID user
-  Future<dynamic> getPenitipByUserId(int idUser) async {
-    try {
-      final response = await _apiService.get('$apiUrl/user/$idUser');
-      return response;
-    } catch (error) {
-      print('Error saat mendapatkan penitip by user ID $idUser: $error');
       throw error;
     }
   }

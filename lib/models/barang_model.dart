@@ -35,12 +35,12 @@ class BarangModel {
 
   String get gambarUtama {
     if (fotoBarang != null && fotoBarang!.isNotEmpty) {
-      // Cari foto yang bertanda thumbnail
-      final thumbnail = fotoBarang!.firstWhere(
-        (foto) => foto.isThumbnail == 1,
+      // Cari foto yang bertanda utama
+      final thumbnailFoto = fotoBarang!.firstWhere(
+        (foto) => foto.isUtama == true,
         orElse: () => fotoBarang!.first,
       );
-      return thumbnail.urlFoto;
+      return thumbnailFoto.url;
     }
     return '';
   }

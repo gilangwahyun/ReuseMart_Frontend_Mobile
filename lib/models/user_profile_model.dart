@@ -1,6 +1,7 @@
 import 'user_model.dart';
 import 'pembeli_model.dart';
 import 'penitip_model.dart';
+import 'dart:convert';
 
 class UserProfileModel {
   final UserModel user;
@@ -46,25 +47,89 @@ class UserProfileModel {
   }
 
   factory UserProfileModel.fromJson(Map<String, dynamic> json) {
-    final user = UserModel.fromJson(json);
+    try {
+      print("Parsing UserProfileModel dari: ${json.keys.toList()}");
+      print("JSON Data: ${jsonEncode(json)}");
 
-    // Parse pembeli data if available
-    PembeliModel? pembeli;
-    if (json['pembeli'] != null && user.role == 'Pembeli') {
-      pembeli = PembeliModel.fromJson(json['pembeli']);
+      // Coba identifikasi struktur JSON yang beragam
+      UserModel user;
+      PembeliModel? pembeli;
+      PenitipModel? penitip;
+
+      // Ekstrak user data
+      if (json.containsKey('user')) {
+        // Format 1: { user: {...}, penitip/pembeli: {...} }
+        print("Format JSON dengan key 'user' terdeteksi");
+        user = UserModel.fromJson(json['user']);
+      } else if (json.containsKey('id_user')) {
+        // Format 2: user data langsung di root objek
+        print("Format JSON dengan user data di root level");
+        user = UserModel.fromJson(json);
+      } else {
+        throw Exception('Format JSON tidak valid: tidak ada data user');
+      }
+
+      // Ekstrak data penitip/pembeli
+      String role = user.role.toLowerCase();
+
+      // Coba cari data penitip
+      if (role == 'penitip') {
+        if (json.containsKey('penitip') && json['penitip'] != null) {
+          print("Data penitip ditemukan dalam format JSON standard");
+          penitip = PenitipModel.fromJson(json['penitip']);
+        } else if (json.containsKey('data') && json['data'] != null) {
+          // Format dari API: {success: true, data: {...}}
+          print("Data penitip ditemukan dalam format data wrapper");
+          penitip = PenitipModel.fromJson(json['data']);
+        }
+      }
+
+      // Coba cari data pembeli
+      if (role == 'pembeli') {
+        if (json.containsKey('pembeli') && json['pembeli'] != null) {
+          print("Data pembeli ditemukan dalam format JSON standard");
+          pembeli = PembeliModel.fromJson(json['pembeli']);
+        } else if (json.containsKey('data') && json['data'] != null) {
+          // Format dari API: {success: true, data: {...}}
+          print("Data pembeli ditemukan dalam format data wrapper");
+          pembeli = PembeliModel.fromJson(json['data']);
+        }
+      }
+
+      return UserProfileModel(user: user, pembeli: pembeli, penitip: penitip);
+    } catch (e) {
+      print("Error parsing UserProfileModel: $e");
+      print("JSON data: ${jsonEncode(json)}");
+
+      // Coba ekstrak user minimal
+      try {
+        UserModel user;
+        if (json.containsKey('user')) {
+          user = UserModel.fromJson(json['user']);
+        } else if (json.containsKey('id_user')) {
+          user = UserModel.fromJson(json);
+        } else {
+          throw Exception('Tidak bisa ekstrak data user minimal');
+        }
+
+        return UserProfileModel(user: user);
+      } catch (innerError) {
+        print("Fatal error dalam parsing UserProfileModel: $innerError");
+        // Buat user model darurat
+        final emergencyUser = UserModel(
+          idUser: 0,
+          email: 'error@parsing.fail',
+          role: 'Unknown',
+        );
+        return UserProfileModel(user: emergencyUser);
+      }
     }
-
-    // Parse penitip data if available
-    PenitipModel? penitip;
-    if (json['penitip'] != null && user.role == 'Penitip') {
-      penitip = PenitipModel.fromJson(json['penitip']);
-    }
-
-    return UserProfileModel(user: user, pembeli: pembeli, penitip: penitip);
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = {'user': user.toJson()};
+    final Map<String, dynamic> data = <String, dynamic>{};
+
+    data['user'] = user.toJson();
 
     if (pembeli != null) {
       data['pembeli'] = pembeli!.toJson();

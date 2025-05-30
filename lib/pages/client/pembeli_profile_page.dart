@@ -394,8 +394,12 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
             title: 'Riwayat Transaksi',
             subtitle: 'Lihat semua transaksi Anda',
             onTap: () {
-              // Navigasi ke halaman riwayat transaksi
-              AppRoutes.navigateTo(context, AppRoutes.riwayatTransaksi);
+              // Untuk sementara tidak ada navigasi
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Fitur ini sedang dalam pengembangan'),
+                ),
+              );
             },
           ),
           const Divider(height: 1),

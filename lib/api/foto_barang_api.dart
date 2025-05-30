@@ -3,21 +3,17 @@ import '../models/foto_barang_model.dart';
 
 class FotoBarangApi {
   final ApiService _apiService = ApiService();
-  final String apiUrl = '/fotoBarang';
+  final String apiUrl = 'fotoBarang';
 
-  Future<List<FotoBarangModel>> getFotoByBarangId(int idBarang) async {
+  // Mendapatkan semua foto barang berdasarkan ID barang
+  Future<dynamic> getFotoByBarangId(int idBarang) async {
     try {
-      final response = await _apiService.get('$apiUrl/$idBarang');
-
-      if (response != null && response['success'] && response['data'] != null) {
-        List<dynamic> data = response['data'];
-        return data.map((item) => FotoBarangModel.fromJson(item)).toList();
-      }
-
-      return [];
-    } catch (error) {
-      print("Error mengambil foto barang: $error");
-      return [];
+      // Gunakan endpoint yang sesuai untuk mendapatkan foto berdasarkan ID barang
+      final response = await _apiService.get('$apiUrl/barang/$idBarang');
+      return response;
+    } catch (e) {
+      print('Error mengambil foto barang: $e');
+      throw e;
     }
   }
 

@@ -3,11 +3,15 @@ import '../../api/auth_api.dart';
 import '../../api/barang_api.dart';
 import '../../api/user_api.dart';
 import '../../api/penitip_api.dart';
+import '../../api/penitipan_barang_api.dart';
 import '../../models/barang_model.dart';
 import '../../models/user_profile_model.dart';
 import '../../models/penitip_model.dart';
+import '../../models/penitipan_barang_model.dart';
 import '../../routes/app_routes.dart';
 import '../../utils/local_storage.dart';
+import 'barang_penitip_page.dart';
+import 'penitipan_list_page.dart';
 
 class PenitipHomePage extends StatefulWidget {
   const PenitipHomePage({super.key});
@@ -19,8 +23,10 @@ class PenitipHomePage extends StatefulWidget {
 class _PenitipHomePageState extends State<PenitipHomePage> {
   final UserApi _userApi = UserApi();
   final AuthApi _authApi = AuthApi();
-  final BarangApi _barangApi = BarangApi();
   final PenitipApi _penitipApi = PenitipApi();
+  final BarangApi _barangApi = BarangApi();
+  final PenitipanBarangApi _penitipanBarangApi = PenitipanBarangApi();
+
   UserProfileModel? _userProfile;
   List<BarangModel> _recentBarang = [];
   bool _isLoading = true;
@@ -64,31 +70,7 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
         _userProfile = profile;
       });
 
-      // Ambil data user
-      final userData = await LocalStorage.getUser();
-      if (userData != null) {
-        try {
-          // Ambil data penitip berdasarkan ID user
-          final penitipResponse = await _penitipApi.getPenitipByUserId(
-            userData.idUser,
-          );
-
-          if (penitipResponse != null && penitipResponse['success'] == true) {
-            print('Detail penitip berhasil diambil dari API');
-            final penitipData = penitipResponse['data'];
-
-            // Jika ada data penitipan, tampilkan jumlahnya
-            if (penitipData['penitipan_barang'] != null) {
-              final penitipanCount = penitipData['penitipan_barang'].length;
-              print('Jumlah penitipan: $penitipanCount');
-            }
-          }
-        } catch (e) {
-          print('Error saat mengambil detail penitip: $e');
-        }
-      }
-
-      // Setelah mendapatkan profil, ambil data barang terbaru
+      // Setelah mendapatkan profil, ambil data barang terbaru untuk dashboard
       await _loadRecentBarang();
     } catch (e) {
       setState(() {
@@ -128,18 +110,22 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
         }
       }
 
+      // Ambil data barang dari API
       final response = await _barangApi.getBarangByPenitip(idPenitip!);
 
-      if (response is List && response.isNotEmpty) {
+      if (response is List) {
         final barangList =
             response.map((item) => BarangModel.fromJson(item)).toList();
 
+        // Ambil 5 barang terbaru untuk dashboard
+        final recentBarang = barangList.take(5).toList();
+
         setState(() {
-          _recentBarang = barangList;
+          _recentBarang = recentBarang;
           _isLoading = false;
         });
       } else {
-        print("API mengembalikan data kosong atau bukan list: $response");
+        print("API mengembalikan format yang tidak dikenali: $response");
         setState(() {
           _recentBarang = [];
           _isLoading = false;
@@ -148,7 +134,7 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
     } catch (e) {
       print("Error saat memuat data barang: $e");
       setState(() {
-        _errorMessage = 'Gagal memuat data barang: $e';
+        _errorMessage = 'Gagal memuat data: $e';
         _isLoading = false;
       });
     }
@@ -170,6 +156,22 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
         AppRoutes.navigateAndReplace(context, AppRoutes.penitipProfile);
         break;
     }
+  }
+
+  void _navigateToPenitipanList() {
+    // Navigasi ke halaman daftar penitipan
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const PenitipanListPage()),
+    );
+  }
+
+  void _navigateToBarangList() {
+    // Navigasi ke halaman daftar barang
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const BarangPenitipPage()),
+    );
   }
 
   @override
@@ -198,7 +200,7 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 60, color: Colors.red.shade400),
+              Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
               const SizedBox(height: 16),
               Text(
                 _errorMessage!,
@@ -207,7 +209,7 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _loadUserData,
+                onPressed: () => _loadUserData(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green.shade600,
                 ),
@@ -221,7 +223,7 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ReuseMart - Penitip'),
+        title: const Text('ReuseMart'),
         backgroundColor: Colors.green.shade600,
       ),
       body: RefreshIndicator(
@@ -232,8 +234,8 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildWelcomeBanner(),
-              _buildMenu(),
-              _buildRecentBarang(),
+              _buildMenuButtons(),
+              _buildRecentBarangSection(),
             ],
           ),
         ),
@@ -252,8 +254,18 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
 
   Widget _buildWelcomeBanner() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-      color: Colors.green.shade50,
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            offset: const Offset(0, 2),
+            blurRadius: 5,
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -270,66 +282,21 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
           Row(
             children: [
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.blue.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Saldo Anda',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Rp ${_userProfile?.penitip?.saldo ?? 0}',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade800,
-                        ),
-                      ),
-                    ],
-                  ),
+                child: _buildInfoCard(
+                  title: 'Saldo Anda',
+                  value:
+                      'Rp ${_formatRupiah(_userProfile?.penitip?.saldo ?? 0)}',
+                  icon: Icons.account_balance_wallet,
+                  color: Colors.blue,
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.amber.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Poin Anda',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.amber.shade700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${_userProfile?.poin ?? 0} Poin',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.amber.shade800,
-                        ),
-                      ),
-                    ],
-                  ),
+                child: _buildInfoCard(
+                  title: 'Poin Reward',
+                  value: '${_userProfile?.poin ?? 0} Poin',
+                  icon: Icons.star,
+                  color: Colors.amber,
                 ),
               ),
             ],
@@ -339,44 +306,75 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
     );
   }
 
-  Widget _buildMenu() {
+  Widget _buildInfoCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required MaterialColor color,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color.shade700),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: TextStyle(fontSize: 14, color: color.shade700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: color.shade800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuButtons() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Menu Penitip',
+            'Menu',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildMenuButton(
-                icon: Icons.inventory,
-                label: 'Barang Saya',
-                onTap:
-                    () =>
-                        AppRoutes.navigateTo(context, AppRoutes.penitipBarang),
+              Expanded(
+                child: _buildMenuButton(
+                  title: 'Riwayat Penitipan',
+                  icon: Icons.history,
+                  color: Colors.indigo,
+                  onTap: _navigateToPenitipanList,
+                ),
               ),
-              _buildMenuButton(
-                icon: Icons.history,
-                label: 'Riwayat',
-                onTap:
-                    () => AppRoutes.navigateTo(
-                      context,
-                      AppRoutes.riwayatPenitipan,
-                    ),
-              ),
-              _buildMenuButton(
-                icon: Icons.payments,
-                label: 'Pendapatan',
-                onTap:
-                    () => AppRoutes.navigateTo(
-                      context,
-                      AppRoutes.pendapatanPenitip,
-                    ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildMenuButton(
+                  title: 'Barang Saya',
+                  icon: Icons.inventory,
+                  color: Colors.teal,
+                  onTap: _navigateToBarangList,
+                ),
               ),
             ],
           ),
@@ -386,31 +384,47 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
   }
 
   Widget _buildMenuButton({
+    required String title,
     required IconData icon,
-    required String label,
+    required MaterialColor color,
     required VoidCallback onTap,
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        width: 80,
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: color.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              offset: const Offset(0, 2),
+              blurRadius: 5,
+            ),
+          ],
+        ),
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
+                color: color.shade100,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: Colors.green.shade600, size: 24),
+              child: Icon(icon, color: color.shade700, size: 28),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
-              label,
+              title,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: color.shade700,
+              ),
             ),
           ],
         ),
@@ -418,64 +432,62 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
     );
   }
 
-  Widget _buildRecentBarang() {
-    return Container(
-      padding: const EdgeInsets.all(16),
+  Widget _buildRecentBarangSection() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Barang Terbaru Anda',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          _recentBarang.isEmpty
-              ? Container(
-                padding: const EdgeInsets.symmetric(vertical: 32),
-                alignment: Alignment.center,
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.inventory_2_outlined,
-                      size: 64,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Belum ada barang yang dititipkan',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-              : Column(
-                children:
-                    _recentBarang
-                        .take(5)
-                        .map((barang) => _buildBarangItem(barang))
-                        .toList(),
+          Row(
+            children: [
+              const Text(
+                'Barang Terbaru Anda',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-          if (_recentBarang.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Center(
-                child: TextButton(
-                  onPressed: () {
-                    AppRoutes.navigateTo(context, AppRoutes.penitipBarang);
-                  },
+              const Spacer(),
+              if (_recentBarang.isNotEmpty)
+                TextButton(
+                  onPressed: _navigateToBarangList,
                   child: Text(
-                    'Lihat Semua Barang',
+                    'Lihat Semua',
                     style: TextStyle(
                       color: Colors.green.shade700,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _recentBarang.isEmpty
+              ? _buildEmptyBarangState()
+              : Column(
+                children:
+                    _recentBarang
+                        .map((barang) => _buildBarangItem(barang))
+                        .toList(),
               ),
-            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyBarangState() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 30),
+      alignment: Alignment.center,
+      child: Column(
+        children: [
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 64,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Belum ada barang yang dititipkan',
+            style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+          ),
         ],
       ),
     );
@@ -530,6 +542,10 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
             ),
           ],
         ),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: () {
+          // Navigasi ke detail barang
+        },
       ),
     );
   }
@@ -549,23 +565,6 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
     );
   }
 
-  String _formatRupiah(double price) {
-    int priceInt = price.toInt(); // Konversi ke int
-    String priceStr = priceInt.toString();
-    String result = '';
-    int count = 0;
-
-    for (int i = priceStr.length - 1; i >= 0; i--) {
-      result = priceStr[i] + result;
-      count++;
-      if (count % 3 == 0 && i != 0) {
-        result = '.$result';
-      }
-    }
-
-    return result;
-  }
-
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'aktif':
@@ -576,6 +575,8 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
         return Colors.blue.shade100;
       case 'barang untuk donasi':
         return Colors.amber.shade100;
+      case 'habis':
+        return Colors.blue.shade100;
       default:
         return Colors.grey.shade200;
     }
@@ -591,8 +592,39 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
         return Colors.blue.shade800;
       case 'barang untuk donasi':
         return Colors.amber.shade800;
+      case 'habis':
+        return Colors.blue.shade800;
       default:
         return Colors.grey.shade800;
+    }
+  }
+
+  String _formatRupiah(double price) {
+    int priceInt = price.toInt();
+    String priceStr = priceInt.toString();
+    String result = '';
+    int count = 0;
+
+    for (int i = priceStr.length - 1; i >= 0; i--) {
+      result = priceStr[i] + result;
+      count++;
+      if (count % 3 == 0 && i != 0) {
+        result = '.$result';
+      }
+    }
+
+    return result;
+  }
+
+  String _formatDate(String isoDate) {
+    try {
+      final date = DateTime.parse(isoDate);
+      final day = date.day.toString().padLeft(2, '0');
+      final month = date.month.toString().padLeft(2, '0');
+      final year = date.year.toString();
+      return '$day/$month/$year';
+    } catch (e) {
+      return isoDate.substring(0, 10);
     }
   }
 }

@@ -1,22 +1,22 @@
 class FotoBarangModel {
   final int idFotoBarang;
   final int idBarang;
-  final String urlFoto;
-  final int? isThumbnail;
+  final String url;
+  final bool? isUtama;
 
   FotoBarangModel({
     required this.idFotoBarang,
     required this.idBarang,
-    required this.urlFoto,
-    this.isThumbnail,
+    required this.url,
+    this.isUtama,
   });
 
   factory FotoBarangModel.fromJson(Map<String, dynamic> json) {
     return FotoBarangModel(
-      idFotoBarang: json['id_foto_barang'],
-      idBarang: json['id_barang'],
-      urlFoto: json['url_foto'] ?? '',
-      isThumbnail: json['is_thumbnail'],
+      idFotoBarang: json['id_foto_barang'] ?? 0,
+      idBarang: json['id_barang'] ?? 0,
+      url: json['url'] ?? '',
+      isUtama: json['is_utama'] == 1 || json['is_utama'] == true,
     );
   }
 
@@ -24,8 +24,8 @@ class FotoBarangModel {
     return {
       'id_foto_barang': idFotoBarang,
       'id_barang': idBarang,
-      'url_foto': urlFoto,
-      'is_thumbnail': isThumbnail,
+      'url': url,
+      'is_utama': isUtama,
     };
   }
 }

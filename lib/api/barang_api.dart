@@ -35,11 +35,12 @@ class BarangApi {
     }
   }
 
-  Future<dynamic> getBarangById(int id) async {
+  Future<dynamic> getBarangById(int idBarang) async {
     try {
-      final response = await _apiService.get('$apiUrl/$id');
+      final response = await _apiService.get('$apiUrl/$idBarang');
       return response;
     } catch (error) {
+      print('Error mendapatkan detail barang: $error');
       throw error;
     }
   }
@@ -141,9 +142,67 @@ class BarangApi {
 
   Future<dynamic> getBarangByPenitip(int idPenitip) async {
     try {
-      final response = await _apiService.get('$apiUrl/penitip/$idPenitip');
-      return response;
+      print('Mencoba mengambil barang untuk penitip ID: $idPenitip');
+
+      // Gunakan endpoint penitipan barang yang tersedia
+      final penitipanResponse = await _apiService.get(
+        '/penitip/$idPenitip/penitipan',
+      );
+
+      if (penitipanResponse == null) {
+        print('Respon penitipan null');
+        return [];
+      }
+
+      // Debugging
+      print('Respon penitipan: ${penitipanResponse is Map ? 'Map' : 'List'}');
+
+      List<dynamic> penitipanList = [];
+
+      // Cek format respons yang diterima
+      if (penitipanResponse is Map && penitipanResponse.containsKey('data')) {
+        print('Format respon dengan wrapper success/data');
+
+        if (penitipanResponse['success'] == true) {
+          penitipanList = penitipanResponse['data'] as List<dynamic>;
+          print('Jumlah penitipan: ${penitipanList.length}');
+        } else {
+          print(
+            'API mengembalikan success:false: ${penitipanResponse['message']}',
+          );
+          return [];
+        }
+      } else if (penitipanResponse is List) {
+        print('Format respon langsung list');
+        penitipanList = penitipanResponse;
+      } else {
+        print('Format respon tidak dikenali: $penitipanResponse');
+        return [];
+      }
+
+      // Kumpulkan semua barang dari penitipan
+      List<dynamic> allBarang = [];
+
+      for (var penitipan in penitipanList) {
+        if (penitipan.containsKey('barang')) {
+          if (penitipan['barang'] is List) {
+            allBarang.addAll(penitipan['barang']);
+            print(
+              'Menambahkan ${penitipan['barang'].length} barang dari penitipan ID ${penitipan['id_penitipan']}',
+            );
+          } else if (penitipan['barang'] != null) {
+            allBarang.add(penitipan['barang']);
+            print(
+              'Menambahkan 1 barang dari penitipan ID ${penitipan['id_penitipan']}',
+            );
+          }
+        }
+      }
+
+      print('Total barang ditemukan: ${allBarang.length}');
+      return allBarang;
     } catch (error) {
+      print('Error saat mengambil barang penitip: $error');
       throw error;
     }
   }

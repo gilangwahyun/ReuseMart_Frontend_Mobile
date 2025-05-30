@@ -757,10 +757,10 @@ class _HomePageState extends State<HomePage> {
                         title: const Text('Riwayat Transaksi'),
                         onTap: () {
                           Navigator.pop(context);
-                          // Navigasi ke halaman riwayat transaksi
+                          // Navigasi ke halaman profil
                           AppRoutes.navigateTo(
                             context,
-                            AppRoutes.riwayatTransaksi,
+                            AppRoutes.pembeliProfile,
                           );
                         },
                       ),
