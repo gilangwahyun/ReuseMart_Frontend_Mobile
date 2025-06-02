@@ -3,7 +3,6 @@ import '../../api/auth_api.dart';
 import '../../api/user_api.dart';
 import '../../api/barang_api.dart';
 import '../../api/penitip_api.dart';
-import '../../components/custom_button.dart';
 import '../../models/user_profile_model.dart';
 import '../../models/barang_penitipan_model.dart';
 import '../../models/penitip_model.dart';
@@ -26,6 +25,9 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
   final BarangApi _barangApi = BarangApi();
   final PenitipApi _penitipApi = PenitipApi();
   int _selectedNavIndex = 1; // 1 untuk halaman profile, 0 untuk home
+
+  // Tambahkan state untuk expandable sections
+  bool _isPersonalInfoExpanded = false;
 
   @override
   void initState() {
@@ -212,33 +214,6 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
     }
   }
 
-  Future<void> _handleLogout() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // Coba logout ke API
-      await _authApi.logout();
-
-      // Hapus semua data lokal menggunakan method yang lebih lengkap
-      await _authApi.clearAllCacheData();
-
-      if (mounted) {
-        AppRoutes.navigateAndClear(context, AppRoutes.login);
-      }
-    } catch (e) {
-      debugPrint('Error during logout: $e');
-
-      // Tetap hapus semua data dari local storage meskipun API logout gagal
-      await _authApi.clearAllCacheData();
-
-      if (mounted) {
-        AppRoutes.navigateAndClear(context, AppRoutes.login);
-      }
-    }
-  }
-
   void _onNavBarTapped(int index) {
     if (_selectedNavIndex == index) return;
 
@@ -284,6 +259,7 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
             icon: const Icon(Icons.settings_outlined),
             onPressed: () {
               // Navigasi ke halaman pengaturan
+              Navigator.pushNamed(context, AppRoutes.settings);
             },
           ),
         ],
@@ -328,19 +304,8 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
                 child: Column(
                   children: [
                     _buildProfileHeader(),
+                    _buildPersonalInfoSection(),
                     _buildProfileMenu(),
-                    const SizedBox(height: 20),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: CustomButton(
-                        text: 'Logout',
-                        onPressed: () {
-                          _showLogoutDialog();
-                        },
-                        backgroundColor: Colors.red.shade600,
-                        textColor: Colors.white,
-                      ),
-                    ),
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -485,6 +450,105 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
     );
   }
 
+  // Widget untuk menampilkan informasi pribadi dalam section yang bisa di-expand
+  Widget _buildPersonalInfoSection() {
+    if (_userProfile?.penitip == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header yang bisa di-klik untuk expand/collapse
+          InkWell(
+            onTap: () {
+              setState(() {
+                _isPersonalInfoExpanded = !_isPersonalInfoExpanded;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.person_outline,
+                      color: Colors.green.shade600,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Informasi Pribadi',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _isPersonalInfoExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: Colors.grey.shade600,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Content yang bisa di-expand/collapse
+          if (_isPersonalInfoExpanded) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildInfoItem(
+                    'Nama Lengkap',
+                    _userProfile!.penitip!.namaPenitip,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildInfoItem(
+                    'No. Telepon',
+                    _userProfile!.penitip!.noTelepon,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildInfoItem('Alamat', _userProfile!.penitip!.alamat),
+                  const SizedBox(height: 12),
+                  _buildInfoItem('NIK', _userProfile!.penitip!.nik),
+                  const SizedBox(height: 12),
+                  _buildInfoItem('Email', _userProfile!.user.email),
+                  const SizedBox(height: 12),
+                  _buildInfoItem('Status', 'Penitip Aktif'),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildProfileMenu() {
     return Container(
       margin: const EdgeInsets.all(16),
@@ -509,15 +573,6 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
             onTap: () {
               // Navigasi ke halaman daftar penitipan barang
               AppRoutes.navigateTo(context, AppRoutes.penitipBarang);
-            },
-          ),
-          const Divider(height: 1),
-          _buildMenuItem(
-            icon: Icons.delete_sweep,
-            title: 'Bersihkan Cache',
-            subtitle: 'Hapus data cache aplikasi (Force Logout)',
-            onTap: () {
-              _showForceLogoutDialog();
             },
           ),
         ],
@@ -551,84 +606,21 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
     );
   }
 
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Konfirmasi Logout'),
-            content: const Text('Apakah Anda yakin ingin keluar?'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Text('Batal'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _handleLogout();
-                },
-                child: const Text(
-                  'Logout',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
-          ),
-    );
-  }
-
-  void _showForceLogoutDialog() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Bersihkan Cache'),
-            content: const Text(
-              'Ini akan menghapus semua data tersimpan dan memaksa logout. Lanjutkan?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Text('Batal'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  Navigator.pop(context);
-
-                  setState(() {
-                    _isLoading = true;
-                  });
-
-                  try {
-                    // Gunakan method forceLogout dari AuthApi
-                    await _authApi.forceLogout();
-
-                    if (mounted) {
-                      AppRoutes.navigateAndClear(context, AppRoutes.login);
-                    }
-                  } catch (e) {
-                    print('Error saat force logout: $e');
-
-                    // Fallback jika gagal
-                    await LocalStorage.clearAllData();
-
-                    if (mounted) {
-                      AppRoutes.navigateAndClear(context, AppRoutes.login);
-                    }
-                  }
-                },
-                child: const Text(
-                  'Hapus Cache',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
-          ),
+  // Widget untuk item informasi pribadi
+  Widget _buildInfoItem(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value.isNotEmpty ? value : '-',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
+      ],
     );
   }
 }

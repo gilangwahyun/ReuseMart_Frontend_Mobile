@@ -8,6 +8,7 @@ import '../../models/kategori_barang_model.dart';
 import '../../models/foto_barang_model.dart';
 import '../../routes/app_routes.dart';
 import '../../utils/local_storage.dart';
+import '../../widgets/notification_icon.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -215,10 +216,7 @@ class _HomePageState extends State<HomePage> {
           },
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
-          ),
+          NotificationIcon(color: Colors.white, badgeColor: Colors.amber),
         ],
       ),
       body: Column(
@@ -788,6 +786,7 @@ class _HomePageState extends State<HomePage> {
                         onTap: () {
                           Navigator.pop(context);
                           // Navigasi ke halaman pengaturan
+                          Navigator.pushNamed(context, AppRoutes.settings);
                         },
                       ),
                     ],

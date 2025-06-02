@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 import '../utils/local_storage.dart';
+import '../services/firebase_service.dart';
 import 'api_service.dart';
 import 'user_api.dart';
 
@@ -34,6 +35,9 @@ class AuthApi {
           // Log berhasil menyimpan data
           print('Token dan data user berhasil disimpan');
 
+          // Register FCM token ke server setelah login
+          _registerFcmToken(response['token']);
+
           // Coba ambil data profil lengkap
           try {
             final userApi = UserApi();
@@ -55,6 +59,26 @@ class AuthApi {
     } catch (error) {
       print("Login error: $error");
       throw error;
+    }
+  }
+
+  // Register FCM Token ke server setelah login
+  Future<void> _registerFcmToken(String authToken) async {
+    try {
+      // Ambil token FCM
+      final fcmToken = await FirebaseService.getToken();
+
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        // Kirim ke server
+        print('Mengirim FCM token ke server setelah login...');
+        await FirebaseService.sendTokenToServer(fcmToken, authToken);
+
+        // Setup listener untuk perubahan token
+        FirebaseService.setupTokenRefreshListener(authToken);
+      }
+    } catch (e) {
+      print('Error saat mengirim FCM token setelah login: $e');
+      // Tidak throw exception agar tidak menghentikan proses login
     }
   }
 

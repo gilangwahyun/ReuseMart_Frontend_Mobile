@@ -110,6 +110,11 @@ class LocalStorage {
     return true;
   }
 
+  // Alias untuk clearAuthData - digunakan di settings page
+  static Future<bool> clearUserData() async {
+    return clearAuthData();
+  }
+
   // Menghapus semua data tersimpan
   static Future<bool> clearAllData() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();

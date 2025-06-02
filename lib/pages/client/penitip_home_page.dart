@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../../api/auth_api.dart';
 import '../../api/barang_api.dart';
 import '../../api/user_api.dart';
@@ -10,6 +11,7 @@ import '../../models/penitip_model.dart';
 import '../../models/penitipan_barang_model.dart';
 import '../../routes/app_routes.dart';
 import '../../utils/local_storage.dart';
+import '../../widgets/notification_icon.dart';
 import 'barang_penitip_page.dart';
 import 'penitipan_list_page.dart';
 
@@ -225,6 +227,9 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
       appBar: AppBar(
         title: const Text('ReuseMart'),
         backgroundColor: Colors.green.shade600,
+        actions: [
+          NotificationIcon(color: Colors.white, badgeColor: Colors.amber),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _loadUserData,

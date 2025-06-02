@@ -4,7 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as developer;
 
 // URL API untuk mengakses Laravel
-const String BASE_URL = "http://10.0.2.2:8000";
+// const String BASE_URL = "http://10.0.2.2:8000";
+const String BASE_URL = "http://192.168.100.89:8000";
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();

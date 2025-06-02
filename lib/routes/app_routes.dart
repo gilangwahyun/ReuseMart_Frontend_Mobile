@@ -9,6 +9,9 @@ import '../pages/client/penitip_home_page.dart';
 import '../pages/client/barang_penitip_page.dart';
 import '../pages/info/informasi_umum_page.dart';
 import '../pages/splash_screen.dart';
+import '../pages/notification_settings_page.dart';
+import '../pages/notification_list_page.dart';
+import '../pages/settings_page.dart';
 
 class AppRoutes {
   // Rute statis
@@ -18,10 +21,14 @@ class AppRoutes {
   static const String home = '/home';
   static const String pembeliProfile = '/pembeli_profile';
   static const String penitipProfile = '/penitip_profile';
+  static const String notificationSettings = '/notification_settings';
+  static const String notifications = '/notifications';
+  static const String settings = '/settings';
 
   // Rute untuk Penitip
-  static const String penitipHome = '/penitip_home';
-  static const String penitipBarang = '/penitip_barang';
+  static const String penitipHome = '/penitip/home';
+  static const String penitipCreateBarang = '/penitip/create-barang';
+  static const String penitipBarang = '/penitip/barang';
 
   // Fungsi untuk mendapatkan semua rute
   static Map<String, WidgetBuilder> getRoutes() {
@@ -33,7 +40,14 @@ class AppRoutes {
       pembeliProfile: (context) => const PembeliProfilePage(),
       penitipProfile: (context) => const PenitipProfilePage(),
       penitipHome: (context) => const PenitipHomePage(),
+      penitipCreateBarang:
+          (context) => const Scaffold(
+            body: Center(child: Text('Halaman Create Barang')),
+          ),
       penitipBarang: (context) => const BarangPenitipPage(),
+      notificationSettings: (context) => const NotificationSettingsPage(),
+      notifications: (context) => const NotificationListPage(),
+      settings: (context) => const SettingsPage(),
     };
   }
 
