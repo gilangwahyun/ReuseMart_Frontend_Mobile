@@ -5,7 +5,7 @@ import 'dart:developer' as developer;
 
 // URL API untuk mengakses Laravel
 // const String BASE_URL = "http://10.0.2.2:8000";
-const String BASE_URL = "http://192.168.100.89:8000";
+const String BASE_URL = "http://192.168.113.22:8000";
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -56,9 +56,14 @@ class ApiService {
 
   // Memastikan endpoint selalu memiliki format yang benar (tanpa leading slash)
   String _formatEndpoint(String endpoint) {
+    // Remove leading slash if present
     if (endpoint.startsWith('/')) {
-      return endpoint.substring(1);
+      endpoint = endpoint.substring(1);
     }
+
+    // Log the formatted endpoint for debugging
+    developer.log('Formatted endpoint: $endpoint');
+
     return endpoint;
   }
 

@@ -1,51 +1,49 @@
 class PegawaiModel {
   final int idPegawai;
+  final int idJabatan;
   final int? idUser;
-  final int? idJabatan;
   final String namaPegawai;
-  final String nikPegawai;
-  final String alamatPegawai;
-  final String teleponPegawai;
-  final String emailPegawai;
-  final String? fotoPegawai;
+  final String tanggalLahir;
+  final String noTelepon;
+  final String alamat;
+  final Map<String, dynamic>? jabatan;
+  final Map<String, dynamic>? user;
 
   PegawaiModel({
     required this.idPegawai,
+    required this.idJabatan,
     this.idUser,
-    this.idJabatan,
     required this.namaPegawai,
-    required this.nikPegawai,
-    required this.alamatPegawai,
-    required this.teleponPegawai,
-    required this.emailPegawai,
-    this.fotoPegawai,
+    required this.tanggalLahir,
+    required this.noTelepon,
+    required this.alamat,
+    this.jabatan,
+    this.user,
   });
 
   factory PegawaiModel.fromJson(Map<String, dynamic> json) {
     return PegawaiModel(
       idPegawai: json['id_pegawai'],
-      idUser: json['id_user'],
       idJabatan: json['id_jabatan'],
-      namaPegawai: json['nama_pegawai'] ?? '',
-      nikPegawai: json['nik_pegawai'] ?? '',
-      alamatPegawai: json['alamat_pegawai'] ?? '',
-      teleponPegawai: json['telepon_pegawai'] ?? '',
-      emailPegawai: json['email_pegawai'] ?? '',
-      fotoPegawai: json['foto_pegawai'],
+      idUser: json['id_user'],
+      namaPegawai: json['nama_pegawai'],
+      tanggalLahir: json['tanggal_lahir'],
+      noTelepon: json['no_telepon'],
+      alamat: json['alamat'],
+      jabatan: json['jabatan'],
+      user: json['user'],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id_pegawai': idPegawai,
-      'id_user': idUser,
       'id_jabatan': idJabatan,
+      'id_user': idUser,
       'nama_pegawai': namaPegawai,
-      'nik_pegawai': nikPegawai,
-      'alamat_pegawai': alamatPegawai,
-      'telepon_pegawai': teleponPegawai,
-      'email_pegawai': emailPegawai,
-      'foto_pegawai': fotoPegawai,
+      'tanggal_lahir': tanggalLahir,
+      'no_telepon': noTelepon,
+      'alamat': alamat,
     };
   }
 }
