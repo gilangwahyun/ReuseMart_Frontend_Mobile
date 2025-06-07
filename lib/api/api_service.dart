@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as developer;
 
@@ -44,7 +45,7 @@ class ApiService {
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
         developer.log(
-          'Token ditambahkan: ${token.substring(0, min(token.length, 10))}...',
+          'Token ditambahkan: ${token.substring(0, math.min(token.length, 10))}...',
         );
       }
     } catch (error) {
@@ -68,15 +69,21 @@ class ApiService {
   }
 
   // GET request
-  Future<dynamic> get(String endpoint) async {
+  Future<dynamic> get(String endpoint, {Map<String, String>? queryParameters}) async {
     try {
       final formattedEndpoint = _formatEndpoint(endpoint);
-      final url = '$baseUrl/${formattedEndpoint}';
-      developer.log('GET Request URL: $url');
+      var uri = Uri.parse('$baseUrl/${formattedEndpoint}');
+      
+      // Add query parameters if provided
+      if (queryParameters != null && queryParameters.isNotEmpty) {
+        uri = uri.replace(queryParameters: queryParameters);
+      }
+      
+      developer.log('GET Request URL: $uri');
 
       final headers = await _getHeaders();
       final response = await http
-          .get(Uri.parse(url), headers: headers)
+          .get(uri, headers: headers)
           .timeout(const Duration(seconds: 15));
 
       developer.log('Response GET $endpoint: ${response.statusCode}');

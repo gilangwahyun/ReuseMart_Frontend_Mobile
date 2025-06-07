@@ -80,24 +80,6 @@ class _KurirProfilePageState extends State<KurirProfilePage> {
     }
   }
 
-  void _onNavBarTapped(int index) {
-    if (_selectedNavIndex == index) return;
-
-    setState(() {
-      _selectedNavIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        // Navigate to home page
-        AppRoutes.navigateAndReplace(context, AppRoutes.kurirHome);
-        break;
-      case 1:
-        // Already on profile page
-        break;
-    }
-  }
-
   void _handleLogout() async {
     // Show confirmation dialog
     final shouldLogout = await showDialog<bool>(
@@ -130,74 +112,44 @@ class _KurirProfilePageState extends State<KurirProfilePage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Profile'),
-          backgroundColor: Colors.green.shade600,
-        ),
-        body: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade600),
-          ),
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade600),
         ),
       );
     }
 
     if (_errorMessage != null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Profile'),
-          backgroundColor: Colors.green.shade600,
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
-              const SizedBox(height: 16),
-              Text(
-                _errorMessage!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => _loadProfile(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade600,
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => _loadProfile(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade600,
-                ),
-                child: const Text('Try Again'),
-              ),
-            ],
-          ),
+              child: const Text('Try Again'),
+            ),
+          ],
         ),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        backgroundColor: Colors.green.shade600,
-        actions: [
-          NotificationIcon(color: Colors.white, badgeColor: Colors.amber),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildProfileHeader(),
-            _buildProfileDetails(),
-            _buildLogoutButton(),
-          ],
-        ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedNavIndex,
-        onTap: _onNavBarTapped,
-        selectedItemColor: Colors.green.shade700,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _buildProfileHeader(),
+          _buildProfileDetails(),
+          _buildLogoutButton(),
         ],
       ),
     );

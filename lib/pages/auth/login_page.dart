@@ -57,7 +57,7 @@ class _LoginPageState extends State<LoginPage> {
 
       if (mounted) {
         // Navigate based on role
-        AppRoutes.navigateToMainFlow(context, true, role);
+        AppRoutes.navigateToMainFlow(context, true, role, userData);
       }
     } else {
       if (mounted) {

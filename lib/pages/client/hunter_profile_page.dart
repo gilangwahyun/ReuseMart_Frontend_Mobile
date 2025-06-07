@@ -112,69 +112,48 @@ class _HunterProfilePageState extends State<HunterProfilePage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Profil Hunter'),
-          backgroundColor: Colors.green.shade600,
-        ),
-        body: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade600),
-          ),
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade600),
         ),
       );
     }
 
     if (_errorMessage != null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Profil Hunter'),
-          backgroundColor: Colors.green.shade600,
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
-              const SizedBox(height: 16),
-              Text(
-                _errorMessage!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => _loadProfile(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade600,
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => _loadProfile(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade600,
-                ),
-                child: const Text('Coba Lagi'),
-              ),
-            ],
-          ),
+              child: const Text('Coba Lagi'),
+            ),
+          ],
         ),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profil Hunter'),
-        backgroundColor: Colors.green.shade600,
-        actions: [
-          NotificationIcon(color: Colors.white, badgeColor: Colors.amber),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadProfile,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            children: [
-              _buildProfileHeader(),
-              _buildProfileDetails(),
-              _buildLogoutButton(),
-            ],
-          ),
+    return RefreshIndicator(
+      onRefresh: _loadProfile,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          children: [
+            _buildProfileHeader(),
+            _buildProfileDetails(),
+            _buildLogoutButton(),
+          ],
         ),
       ),
     );
@@ -232,7 +211,7 @@ class _HunterProfilePageState extends State<HunterProfilePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Informasi Personal',
+            'Informasi Puersonal',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),

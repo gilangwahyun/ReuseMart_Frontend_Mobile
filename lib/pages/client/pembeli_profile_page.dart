@@ -5,9 +5,12 @@ import '../../components/custom_button.dart';
 import '../../models/user_profile_model.dart';
 import '../../routes/app_routes.dart';
 import '../../utils/local_storage.dart';
+import 'merchandise_page.dart';
 
 class PembeliProfilePage extends StatefulWidget {
-  const PembeliProfilePage({super.key});
+  final bool isEmbedded;
+  
+  const PembeliProfilePage({super.key, this.isEmbedded = false});
 
   @override
   State<PembeliProfilePage> createState() => _PembeliProfilePageState();
@@ -19,6 +22,7 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
   final AuthApi _authApi = AuthApi();
   final UserApi _userApi = UserApi();
   int _selectedNavIndex = 3; // 3 untuk halaman profile
+  String? _error;
 
   @override
   void initState() {
@@ -133,16 +137,31 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
 
     try {
       await _authApi.logout();
+      
+      // Clear any local user data
+      await LocalStorage.clearAuthData();
+      
+      // Navigate to login page
       if (mounted) {
-        AppRoutes.navigateAndClear(context, AppRoutes.login);
+        // Use navigateAndClear to remove all previous routes and set a named route
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRoutes.login,
+          (Route<dynamic> route) => false,
+          arguments: {'source': 'logout'},
+        );
       }
     } catch (e) {
       debugPrint('Error during logout: $e');
-      // Tetap hapus data dari local storage meskipun API logout gagal
+      // Even if API logout fails, still clear local data and navigate to login
       await LocalStorage.clearAuthData();
 
       if (mounted) {
-        AppRoutes.navigateAndClear(context, AppRoutes.login);
+        // Use navigateAndClear to remove all previous routes and set a named route
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRoutes.login,
+          (Route<dynamic> route) => false,
+          arguments: {'source': 'logout'},
+        );
       }
     }
   }
@@ -154,39 +173,17 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
       _selectedNavIndex = index;
     });
 
-    switch (index) {
-      case 0:
-        // Navigasi ke Home
-        AppRoutes.navigateAndReplace(context, AppRoutes.home);
-        break;
-      case 1:
-        // Implementasi untuk halaman cari
-        break;
-      case 2:
-        // Implementasi untuk halaman keranjang
-        break;
-      case 3:
-        // Sudah di halaman profil
-        break;
-    }
+    // When embedded in container, we don't need navigation between tabs
+    if (widget.isEmbedded) return;
+
+    // Only navigate if not embedded in container
+    AppRoutes.navigateAndReplace(context, AppRoutes.pembeliContainer);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Profil'),
-          backgroundColor: Colors.green.shade600,
-          elevation: 0,
-        ),
-        body: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade600),
-          ),
-        ),
-      );
-    }
+    // Use widget.isEmbedded instead of checking route
+    final bool isEmbedded = widget.isEmbedded;
 
     return Scaffold(
       appBar: AppBar(
@@ -195,71 +192,69 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined),
+            icon: const Icon(Icons.settings),
             onPressed: () {
-              // Navigasi ke halaman pengaturan
+              AppRoutes.navigateTo(context, AppRoutes.settings);
             },
           ),
         ],
       ),
-      body:
-          _userProfile == null
-              ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.account_circle_outlined,
-                      size: 100,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Anda belum login',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        AppRoutes.navigateAndClear(context, AppRoutes.login);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade600,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 32,
-                          vertical: 12,
-                        ),
-                      ),
-                      child: const Text('Login Sekarang'),
-                    ),
-                  ],
-                ),
-              )
-              : SingleChildScrollView(
-                child: Column(
-                  children: [
-                    _buildProfileHeader(),
-                    _buildProfileMenu(),
-                    const SizedBox(height: 20),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: CustomButton(
-                        text: 'Logout',
-                        onPressed: () {
-                          _showLogoutDialog();
-                        },
-                        backgroundColor: Colors.red.shade600,
-                        textColor: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
+      body: _isLoading
+          ? Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Colors.green.shade600,
                 ),
               ),
-      bottomNavigationBar: BottomNavigationBar(
+            )
+          : _error != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Error: $_error',
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _loadUserData,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade600,
+                        ),
+                        child: const Text('Coba Lagi'),
+                      ),
+                    ],
+                  ),
+                )
+              : _userProfile == null
+                  ? const Center(
+                      child: Text('Tidak ada data profil'),
+                    )
+                  : SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          _buildProfileHeader(),
+                          _buildProfileMenu(),
+                          const SizedBox(height: 20),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: CustomButton(
+                              text: 'Logout',
+                              onPressed: () {
+                                _showLogoutDialog();
+                              },
+                              backgroundColor: Colors.red.shade600,
+                              textColor: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
+      // Only show bottom navigation when not embedded in container
+      bottomNavigationBar: isEmbedded ? null : BottomNavigationBar(
         currentIndex: _selectedNavIndex,
         onTap: _onNavBarTapped,
         type: BottomNavigationBarType.fixed,
@@ -426,7 +421,14 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
             title: 'Tukar Poin',
             subtitle: 'Tukar poin dengan hadiah menarik',
             onTap: () {
-              // Navigasi ke halaman pengaturan
+              print("Tukar Poin clicked, navigating to merchandise");
+              
+              // Use regular Navigator.push when embedded in a container
+              // This allows navigation within the nested navigator
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const MerchandisePage()),
+              );
             },
           ),
         ],

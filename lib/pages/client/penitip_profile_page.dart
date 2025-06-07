@@ -214,109 +214,53 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
     }
   }
 
-  void _onNavBarTapped(int index) {
-    if (_selectedNavIndex == index) return;
-
-    setState(() {
-      _selectedNavIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        // Navigasi ke Home Penitip
-        AppRoutes.navigateAndReplace(context, AppRoutes.penitipHome);
-        break;
-      case 1:
-        // Sudah di halaman profil
-        break;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Profil'),
-          backgroundColor: Colors.green.shade600,
-          elevation: 0,
-        ),
-        body: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade600),
-          ),
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade600),
         ),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profil Saya'),
-        backgroundColor: Colors.green.shade600,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              // Navigasi ke halaman pengaturan
-              Navigator.pushNamed(context, AppRoutes.settings);
-            },
-          ),
-        ],
-      ),
-      body:
-          _userProfile == null
-              ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.account_circle_outlined,
-                      size: 100,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Anda belum login',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        AppRoutes.navigateAndClear(context, AppRoutes.login);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade600,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 32,
-                          vertical: 12,
-                        ),
-                      ),
-                      child: const Text('Login Sekarang'),
-                    ),
-                  ],
-                ),
-              )
-              : SingleChildScrollView(
-                child: Column(
-                  children: [
-                    _buildProfileHeader(),
-                    _buildPersonalInfoSection(),
-                    _buildProfileMenu(),
-                    const SizedBox(height: 20),
-                  ],
-                ),
+    // Jika tidak ada data profil
+    if (_userProfile == null || _userProfile!.penitip == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+            const SizedBox(height: 16),
+            const Text(
+              'Data profil tidak ditemukan',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Silakan coba lagi atau hubungi administrator',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _loadUserData,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade600,
               ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedNavIndex,
-        onTap: _onNavBarTapped,
-        selectedItemColor: Colors.green.shade700,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Beranda'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+              child: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Column(
+        children: [
+          _buildProfileHeader(),
+          _buildProfileInfo(),
+          _buildLogoutButton(),
         ],
       ),
     );
@@ -450,177 +394,127 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
     );
   }
 
-  // Widget untuk menampilkan informasi pribadi dalam section yang bisa di-expand
-  Widget _buildPersonalInfoSection() {
-    if (_userProfile?.penitip == null) {
-      return const SizedBox.shrink();
-    }
-
+  Widget _buildProfileInfo() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.all(16),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header yang bisa di-klik untuk expand/collapse
-          InkWell(
-            onTap: () {
-              setState(() {
-                _isPersonalInfoExpanded = !_isPersonalInfoExpanded;
-              });
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.person_outline,
-                      color: Colors.green.shade600,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Informasi Pribadi',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    _isPersonalInfoExpanded
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
-                    color: Colors.grey.shade600,
-                  ),
-                ],
-              ),
-            ),
+          const Text(
+            'Informasi Personal',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-
-          // Content yang bisa di-expand/collapse
-          if (_isPersonalInfoExpanded) ...[
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildInfoItem(
-                    'Nama Lengkap',
-                    _userProfile!.penitip!.namaPenitip,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildInfoItem(
-                    'No. Telepon',
-                    _userProfile!.penitip!.noTelepon,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildInfoItem('Alamat', _userProfile!.penitip!.alamat),
-                  const SizedBox(height: 12),
-                  _buildInfoItem('NIK', _userProfile!.penitip!.nik),
-                  const SizedBox(height: 12),
-                  _buildInfoItem('Email', _userProfile!.user.email),
-                  const SizedBox(height: 12),
-                  _buildInfoItem('Status', 'Penitip Aktif'),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileMenu() {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+          const SizedBox(height: 16),
+          _buildInfoItem(
+            icon: Icons.person,
+            title: 'Nama',
+            value: _userProfile!.penitip!.namaPenitip,
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          _buildMenuItem(
-            icon: Icons.inventory,
-            title: 'Barang Saya',
-            subtitle: 'Lihat semua barang penitipan Anda',
-            onTap: () {
-              // Navigasi ke halaman daftar penitipan barang
-              AppRoutes.navigateTo(context, AppRoutes.penitipBarang);
-            },
+          _buildInfoItem(
+            icon: Icons.email,
+            title: 'Email',
+            value: _userProfile?.user.email ?? '-',
+          ),
+          _buildInfoItem(
+            icon: Icons.phone,
+            title: 'Telepon',
+            value: _userProfile!.penitip!.noTelepon,
+          ),
+          _buildInfoItem(
+            icon: Icons.location_on,
+            title: 'Alamat',
+            value: _userProfile!.penitip!.alamat,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMenuItem({
+  Widget _buildInfoItem({
     required IconData icon,
     required String title,
-    required String subtitle,
-    required VoidCallback onTap,
+    required String value,
   }) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.green.shade50,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: Colors.green.shade600),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: Colors.green.shade600),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text(subtitle),
-      trailing: Icon(
-        Icons.arrow_forward_ios,
-        size: 16,
-        color: Colors.grey.shade400,
-      ),
-      onTap: onTap,
     );
   }
 
-  // Widget untuk item informasi pribadi
-  Widget _buildInfoItem(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+  Widget _buildLogoutButton() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      child: ElevatedButton.icon(
+        onPressed: () async {
+          // Show confirmation dialog
+          final shouldLogout = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Konfirmasi Logout'),
+              content: const Text('Apakah Anda yakin ingin keluar?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Batal'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Ya, Keluar'),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                ),
+              ],
+            ),
+          );
+
+          if (shouldLogout == true) {
+            await _authApi.logout();
+            if (mounted) {
+              AppRoutes.navigateAndClear(context, AppRoutes.login);
+            }
+          }
+        },
+        icon: const Icon(Icons.logout),
+        label: const Text('Logout'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.red.shade600,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 4),
-        Text(
-          value.isNotEmpty ? value : '-',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-        ),
-      ],
+      ),
     );
   }
 }

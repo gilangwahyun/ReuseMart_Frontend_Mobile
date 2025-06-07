@@ -262,9 +262,71 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
                         ),
                       if (barang.berat != null)
                         _buildDetailRow('Berat', '${barang.berat} gram'),
-                      if (barang.masaGaransi != null &&
-                          barang.masaGaransi!.isNotEmpty)
-                        _buildDetailRow('Garansi', barang.masaGaransi!),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 100,
+                            child: Text(
+                              'Garansi',
+                              style: TextStyle(fontSize: 15, color: Colors.grey.shade700),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: barang.masaGaransi != null && barang.masaGaransi!.isNotEmpty
+                              ? Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.shade100,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.green.shade600),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.verified_outlined, color: Colors.green.shade700, size: 16),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            barang.masaGaransi!,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.green.shade800,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.grey.shade400),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.not_interested, color: Colors.grey.shade600, size: 16),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Tidak ada garansi',
+                                        style: TextStyle(
+                                          fontSize: 14, 
+                                          color: Colors.grey.shade800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                          ),
+                        ],
+                      ),
                       if (barang.rating != null)
                         _buildDetailRow('Rating', '${barang.rating}/5'),
                     ]),
@@ -311,7 +373,7 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
 
                     // Deskripsi
                     Text(
-                      'Deskripsi',
+                      'Diskripsi',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,

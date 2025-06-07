@@ -11,7 +11,9 @@ import '../../utils/local_storage.dart';
 import '../../widgets/notification_icon.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final bool isEmbedded;
+  
+  const HomePage({super.key, this.isEmbedded = false});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -177,12 +179,12 @@ class _HomePageState extends State<HomePage> {
       final role = userData['role'];
 
       if (role == 'Pembeli') {
-        AppRoutes.navigateAndReplace(context, AppRoutes.pembeliProfile);
+        AppRoutes.navigateAndReplace(context, AppRoutes.pembeliContainer);
       } else if (role == 'Penitip') {
         AppRoutes.navigateAndReplace(context, AppRoutes.penitipProfile);
       } else {
         // Jika role tidak dikenal, gunakan profil pembeli sebagai default
-        AppRoutes.navigateAndReplace(context, AppRoutes.pembeliProfile);
+        AppRoutes.navigateAndReplace(context, AppRoutes.pembeliContainer);
       }
     } else {
       // Jika tidak ada data user, arahkan ke halaman login
@@ -192,18 +194,24 @@ class _HomePageState extends State<HomePage> {
 
   void _navigateToDetail(int idBarang) {
     // Navigasi ke halaman detail barang
-    // Anda bisa menggunakan Navigator atau AppRoutes
-    // Contoh:
-    // Navigator.push(
-    //   context,
-    //   MaterialPageRoute(
-    //     builder: (context) => DetailBarangPage(idBarang: idBarang),
-    //   ),
-    // );
+    print("DEBUG: Navigating to detail page for barang ID: $idBarang");
+    try {
+      AppRoutes.navigateTo(
+        context,
+        AppRoutes.detailBarang,
+        arguments: {'id_barang': idBarang},
+      );
+      print("DEBUG: Navigation method called successfully");
+    } catch (e) {
+      print("DEBUG ERROR: Failed to navigate: $e");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Use widget.isEmbedded instead of checking route
+    final bool isEmbedded = widget.isEmbedded;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(''),
@@ -339,7 +347,8 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
+      // Only show bottom navigation when not embedded in container
+      bottomNavigationBar: isEmbedded ? null : BottomNavigationBar(
         currentIndex: _selectedNavIndex,
         onTap: _onNavBarTapped,
         type: BottomNavigationBarType.fixed,
@@ -599,6 +608,50 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
+                    // Warranty badge
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        color: Colors.black.withOpacity(0.6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              barang.masaGaransi != null && barang.masaGaransi!.isNotEmpty
+                                ? Icons.verified_outlined
+                                : Icons.not_interested,
+                              color: barang.masaGaransi != null && barang.masaGaransi!.isNotEmpty
+                                ? Colors.green.shade300
+                                : Colors.grey.shade400,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                barang.masaGaransi != null && barang.masaGaransi!.isNotEmpty
+                                  ? 'Garansi: ${barang.masaGaransi}'
+                                  : 'Tanpa Garansi',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: barang.masaGaransi != null && barang.masaGaransi!.isNotEmpty
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 Expanded(
@@ -758,7 +811,7 @@ class _HomePageState extends State<HomePage> {
                           // Navigasi ke halaman profil
                           AppRoutes.navigateTo(
                             context,
-                            AppRoutes.pembeliProfile,
+                            AppRoutes.pembeliContainer,
                           );
                         },
                       ),
