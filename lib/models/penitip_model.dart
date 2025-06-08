@@ -1,3 +1,5 @@
+import 'user_model.dart';
+
 class PenitipModel {
   final int idPenitip;
   final int idUser;
@@ -9,6 +11,7 @@ class PenitipModel {
   final String alamat;
   final double? saldo;
   final int? jumlahPoin;
+  final UserModel? user;
 
   PenitipModel({
     required this.idPenitip,
@@ -21,12 +24,16 @@ class PenitipModel {
     required this.alamat,
     this.saldo,
     this.jumlahPoin,
+    this.user,
   });
 
   factory PenitipModel.fromJson(Map<String, dynamic> json) {
     try {
-      // Log untuk debugging
-      print("Parsing PenitipModel dari: ${json.keys.toList()}");
+      // Parse user jika tersedia
+      UserModel? userData;
+      if (json['user'] != null) {
+        userData = UserModel.fromJson(json['user']);
+      }
 
       return PenitipModel(
         idPenitip: json['id_penitip'] ?? 0,
@@ -39,16 +46,18 @@ class PenitipModel {
         alamat: json['alamat'] ?? '',
         saldo:
             json['saldo'] != null
-                ? double.parse(json['saldo'].toString())
+                ? double.tryParse(json['saldo'].toString()) ?? 0
                 : null,
         jumlahPoin:
-            json['jumlah_poin'] is String
-                ? int.tryParse(json['jumlah_poin'])
-                : json['jumlah_poin'],
+            json['jumlah_poin'] != null
+                ? (json['jumlah_poin'] is String
+                    ? int.tryParse(json['jumlah_poin'])
+                    : json['jumlah_poin'])
+                : null,
+        user: userData,
       );
     } catch (e) {
       print("Error parsing PenitipModel: $e");
-      print("JSON data: $json");
 
       // Fallback dengan nilai default untuk menghindari crash
       return PenitipModel(
@@ -88,6 +97,7 @@ class PenitipModel {
     String? alamat,
     double? saldo,
     int? jumlahPoin,
+    UserModel? user,
   }) {
     return PenitipModel(
       idPenitip: idPenitip ?? this.idPenitip,
@@ -100,6 +110,7 @@ class PenitipModel {
       alamat: alamat ?? this.alamat,
       saldo: saldo ?? this.saldo,
       jumlahPoin: jumlahPoin ?? this.jumlahPoin,
+      user: user ?? this.user,
     );
   }
 }

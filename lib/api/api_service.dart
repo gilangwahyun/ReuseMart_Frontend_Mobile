@@ -2,13 +2,15 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as developer;
+import '../utils/local_storage.dart';
 
-// URL API untuk mengakses Laravel
-// const String BASE_URL = "http://10.0.2.2:8000";
-const String BASE_URL = "http://192.168.100.89:8000";
+// URL API untuk mengakses Laravel - Dibuat public agar dapat diakses di file lain
+const String BASE_URL = "http://10.0.2.2:8000";
+// const String BASE_URL = "http://192.168.1.4:8000";
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
+  static bool _debugMode = false;
 
   factory ApiService() {
     return _instance;
@@ -17,6 +19,16 @@ class ApiService {
   ApiService._internal();
 
   String get baseUrl => '$BASE_URL/api';
+
+  static void setDebugMode(bool enabled) {
+    _debugMode = enabled;
+  }
+
+  void _log(String message) {
+    if (_debugMode) {
+      developer.log('[ApiService] $message');
+    }
+  }
 
   // Fungsi helper untuk log error
   void logError(String prefix, dynamic error) {
@@ -43,9 +55,7 @@ class ApiService {
 
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
-        developer.log(
-          'Token ditambahkan: ${token.substring(0, min(token.length, 10))}...',
-        );
+        _log('Token added to headers');
       }
     } catch (error) {
       developer.log('Error mengambil token: $error');
@@ -65,80 +75,187 @@ class ApiService {
   // GET request
   Future<dynamic> get(String endpoint) async {
     try {
-      final formattedEndpoint = _formatEndpoint(endpoint);
-      final url = '$baseUrl/${formattedEndpoint}';
-      developer.log('GET Request URL: $url');
+      final token = await LocalStorage.getToken();
+      final url = Uri.parse('$baseUrl/$endpoint');
 
-      final headers = await _getHeaders();
-      final response = await http
-          .get(Uri.parse(url), headers: headers)
-          .timeout(const Duration(seconds: 15));
+      _log('GET Request to: $url');
 
-      developer.log('Response GET $endpoint: ${response.statusCode}');
-      return _handleResponse(response);
-    } catch (error) {
-      logError('Error pada GET request', error);
-      throw _createCustomError(error);
+      final Map<String, String> headers = Map<String, String>.from(
+        await _getHeaders(),
+      );
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      _log('Request headers prepared');
+
+      final response = await http.get(url, headers: headers);
+
+      _log('Response status: ${response.statusCode}');
+      _log('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        if (response.body.isEmpty) {
+          _log('Response body is empty, returning empty array');
+          return [];
+        }
+
+        try {
+          final decodedResponse = json.decode(response.body);
+          _log('Decoded response: $decodedResponse');
+
+          // Jika response adalah Map dengan format success dan data
+          if (decodedResponse is Map && decodedResponse.containsKey('data')) {
+            _log('Response contains data field');
+            return decodedResponse['data'];
+          }
+
+          return decodedResponse;
+        } catch (e) {
+          developer.log('Error decoding response: $e');
+          return [];
+        }
+      } else if (response.statusCode == 401) {
+        // Token tidak valid atau expired
+        await LocalStorage.clearToken();
+        throw Exception('Unauthorized');
+      } else {
+        developer.log(
+          'Error response: ${response.statusCode} - ${response.body}',
+        );
+        return [];
+      }
+    } catch (e) {
+      developer.log('Network error: $e');
+      rethrow;
     }
   }
 
   // POST request
-  Future<dynamic> post(String endpoint, Map<String, dynamic> data) async {
+  Future<dynamic> post(String endpoint, dynamic data) async {
     try {
-      final formattedEndpoint = _formatEndpoint(endpoint);
-      final url = '$baseUrl/${formattedEndpoint}';
-      developer.log('POST Request URL: $url');
+      final token = await LocalStorage.getToken();
+      final url = Uri.parse('$baseUrl/$endpoint');
 
-      final headers = await _getHeaders();
-      final response = await http
-          .post(Uri.parse(url), headers: headers, body: json.encode(data))
-          .timeout(const Duration(seconds: 15));
+      _log('POST Request to: $url');
 
-      developer.log('Response POST $endpoint: ${response.statusCode}');
-      return _handleResponse(response);
-    } catch (error) {
-      logError('Error pada POST request', error);
-      throw _createCustomError(error);
+      final Map<String, String> headers = Map<String, String>.from(
+        await _getHeaders(),
+      );
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: json.encode(data),
+      );
+
+      _log('Response status: ${response.statusCode}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (response.body.isEmpty) {
+          _log('Response body is empty');
+          return null;
+        }
+        return json.decode(response.body);
+      } else if (response.statusCode == 401) {
+        await LocalStorage.clearToken();
+        throw Exception('Unauthorized');
+      } else {
+        developer.log(
+          'Error response: ${response.statusCode} - ${response.body}',
+        );
+        return null;
+      }
+    } catch (e) {
+      developer.log('Network error: $e');
+      rethrow;
     }
   }
 
   // PUT request
-  Future<dynamic> put(String endpoint, Map<String, dynamic> data) async {
+  Future<dynamic> put(String endpoint, dynamic data) async {
     try {
-      final formattedEndpoint = _formatEndpoint(endpoint);
-      final url = '$baseUrl/${formattedEndpoint}';
-      developer.log('PUT Request URL: $url');
+      final token = await LocalStorage.getToken();
+      final url = Uri.parse('$baseUrl/$endpoint');
 
-      final headers = await _getHeaders();
-      final response = await http
-          .put(Uri.parse(url), headers: headers, body: json.encode(data))
-          .timeout(const Duration(seconds: 10));
+      _log('PUT Request to: $url');
 
-      developer.log('Response PUT $endpoint: ${response.statusCode}');
-      return _handleResponse(response);
-    } catch (error) {
-      logError('Error pada PUT request', error);
-      throw _createCustomError(error);
+      final Map<String, String> headers = Map<String, String>.from(
+        await _getHeaders(),
+      );
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final response = await http.put(
+        url,
+        headers: headers,
+        body: json.encode(data),
+      );
+
+      _log('Response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        if (response.body.isEmpty) {
+          _log('Response body is empty');
+          return null;
+        }
+        return json.decode(response.body);
+      } else if (response.statusCode == 401) {
+        await LocalStorage.clearToken();
+        throw Exception('Unauthorized');
+      } else {
+        developer.log(
+          'Error response: ${response.statusCode} - ${response.body}',
+        );
+        return null;
+      }
+    } catch (e) {
+      developer.log('Network error: $e');
+      rethrow;
     }
   }
 
   // DELETE request
   Future<dynamic> delete(String endpoint) async {
     try {
-      final formattedEndpoint = _formatEndpoint(endpoint);
-      final url = '$baseUrl/${formattedEndpoint}';
-      developer.log('DELETE Request URL: $url');
+      final token = await LocalStorage.getToken();
+      final url = Uri.parse('$baseUrl/$endpoint');
 
-      final headers = await _getHeaders();
-      final response = await http
-          .delete(Uri.parse(url), headers: headers)
-          .timeout(const Duration(seconds: 10));
+      _log('DELETE Request to: $url');
 
-      developer.log('Response DELETE $endpoint: ${response.statusCode}');
-      return _handleResponse(response);
-    } catch (error) {
-      logError('Error pada DELETE request', error);
-      throw _createCustomError(error);
+      final Map<String, String> headers = Map<String, String>.from(
+        await _getHeaders(),
+      );
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final response = await http.delete(url, headers: headers);
+
+      _log('Response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        if (response.body.isEmpty) {
+          _log('Response body is empty');
+          return null;
+        }
+        return json.decode(response.body);
+      } else if (response.statusCode == 401) {
+        await LocalStorage.clearToken();
+        throw Exception('Unauthorized');
+      } else {
+        developer.log(
+          'Error response: ${response.statusCode} - ${response.body}',
+        );
+        return null;
+      }
+    } catch (e) {
+      developer.log('Network error: $e');
+      rethrow;
     }
   }
 

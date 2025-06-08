@@ -1,4 +1,5 @@
 import 'api_service.dart';
+import 'dart:developer' as developer;
 
 class BarangApi {
   final ApiService _apiService = ApiService();
@@ -6,105 +7,156 @@ class BarangApi {
 
   Future<dynamic> getAllBarang() async {
     try {
+      developer.log('Mengambil semua data barang');
       final response = await _apiService.get(apiUrl);
       return response;
     } catch (error) {
-      throw error;
+      developer.log('Error mengambil semua data barang: $error');
+      return [];
     }
   }
 
   Future<dynamic> getAllActiveBarang() async {
     try {
+      developer.log('Mengambil semua barang aktif');
       final response = await _apiService.get(
         '$apiUrl/cari-status?status=Aktif',
       );
       return response;
     } catch (error) {
-      throw error;
+      developer.log('Error mengambil barang aktif: $error');
+      return [];
     }
   }
 
   Future<dynamic> getAllDonateBarang() async {
     try {
+      developer.log('Mengambil semua barang untuk donasi');
       final response = await _apiService.get(
         '$apiUrl/cari-status?status=Barang untuk Donasi',
       );
       return response;
     } catch (error) {
-      throw error;
+      developer.log('Error mengambil barang donasi: $error');
+      return [];
     }
   }
 
-  Future<dynamic> getBarangById(int idBarang) async {
+  Future<dynamic> getBarangById(int id) async {
     try {
-      final response = await _apiService.get('$apiUrl/$idBarang');
+      developer.log('Mengambil detail barang dengan ID: $id');
+      final response = await _apiService.get('$apiUrl/$id');
+      developer.log('Response detail barang (raw): $response');
+
+      if (response == null) {
+        developer.log('Data barang tidak ditemukan');
+        return null;
+      }
+
+      // Log struktur response
+      if (response is Map) {
+        developer.log('Response is Map with keys: ${response.keys.toList()}');
+        if (response.containsKey('data')) {
+          developer.log('Data field contains: ${response['data']}');
+
+          // Log penitipan data jika ada
+          if (response['data'] is Map &&
+              response['data'].containsKey('penitipan_barang')) {
+            developer.log(
+              'Penitipan data found: ${response['data']['penitipan_barang']}',
+            );
+          }
+        }
+      }
+
+      // Jika response adalah Map dengan data wrapper
+      if (response is Map && response.containsKey('data')) {
+        return response['data'];
+      }
+
+      // Jika response langsung berupa data
       return response;
-    } catch (error) {
-      print('Error mendapatkan detail barang: $error');
-      throw error;
+    } catch (error, stackTrace) {
+      developer.log('Error mengambil detail barang: $error');
+      developer.log('Stack trace: $stackTrace');
+      return null;
     }
   }
 
   Future<dynamic> createBarang(Map<String, dynamic> barangData) async {
     try {
+      developer.log('Membuat barang baru');
       final response = await _apiService.post(apiUrl, barangData);
       return response;
     } catch (error) {
-      throw error;
+      developer.log('Error membuat barang: $error');
+      return null;
     }
   }
 
   Future<dynamic> updateBarang(int id, Map<String, dynamic> barangData) async {
     try {
+      developer.log('Mengupdate barang ID: $id');
       final response = await _apiService.put('$apiUrl/$id', barangData);
       return response;
     } catch (error) {
-      throw error;
+      developer.log('Error mengupdate barang: $error');
+      return null;
     }
   }
 
   Future<dynamic> deleteBarang(int id) async {
     try {
+      developer.log('Menghapus barang ID: $id');
       final response = await _apiService.delete('$apiUrl/$id');
       return response;
     } catch (error) {
-      throw error;
+      developer.log('Error menghapus barang: $error');
+      return null;
     }
   }
 
   Future<dynamic> getBarangByKategori(String namaKategori) async {
     try {
+      developer.log('Mencari barang dengan kategori: $namaKategori');
       final response = await _apiService.get(
-        '$apiUrl/cari-kategori?kategori=${Uri.encodeComponent(namaKategori)}',
+        '$apiUrl/cari-kategori?kategori=$namaKategori',
       );
       return response;
     } catch (error) {
-      throw error;
+      developer.log('Error mencari barang by kategori: $error');
+      return [];
     }
   }
 
-  Future<dynamic> searchBarangByName(String namaBarang) async {
+  Future<dynamic> searchBarangByName(String? namaBarang) async {
     try {
-      print("Mencari barang dengan kata kunci: $namaBarang");
+      if (namaBarang == null || namaBarang.trim().isEmpty) {
+        return await getAllActiveBarang();
+      }
+
+      developer.log('Mencari barang dengan nama: $namaBarang');
       final response = await _apiService.get(
         '$apiUrl/cari?nama_barang=$namaBarang',
       );
       return response;
     } catch (error) {
-      print("Terjadi kesalahan saat mencari barang: $error");
-      throw error;
+      developer.log('Error mencari barang by nama: $error');
+      return [];
     }
   }
 
   Future<dynamic> updateBarangRating(
     int id,
-    Map<String, dynamic> barangData,
+    Map<String, dynamic> ratingData,
   ) async {
     try {
-      final response = await _apiService.put('$apiUrl/$id/rating', barangData);
+      developer.log('Mengupdate rating barang ID: $id');
+      final response = await _apiService.put('$apiUrl/$id/rating', ratingData);
       return response;
     } catch (error) {
-      throw error;
+      developer.log('Error mengupdate rating: $error');
+      return null;
     }
   }
 
@@ -114,96 +166,142 @@ class BarangApi {
     String? tanggalAkhir,
   }) async {
     try {
-      String url = '$apiUrl/advanced/all-search?';
+      developer.log('Mencari barang dengan multiple field');
 
-      if (keyword != null) url += 'keyword=$keyword&';
-      if (tanggalAwal != null) url += 'tanggal_awal=$tanggalAwal&';
-      if (tanggalAkhir != null) url += 'tanggal_akhir=$tanggalAkhir&';
+      String endpoint = '$apiUrl/advanced/all-search';
+      List<String> params = [];
 
-      // Hapus '&' terakhir jika ada
-      url = url.endsWith('&') ? url.substring(0, url.length - 1) : url;
+      if (keyword != null) params.add('keyword=$keyword');
+      if (tanggalAwal != null) params.add('tanggal_awal=$tanggalAwal');
+      if (tanggalAkhir != null) params.add('tanggal_akhir=$tanggalAkhir');
 
-      final response = await _apiService.get(url);
+      if (params.isNotEmpty) {
+        endpoint += '?${params.join('&')}';
+      }
+
+      final response = await _apiService.get(endpoint);
       return response;
     } catch (error) {
-      throw error;
+      developer.log('Error mencari barang all field: $error');
+      return [];
     }
   }
 
   Future<dynamic> getLaporanStokGudang() async {
     try {
+      developer.log('Mengambil laporan stok gudang');
       final response = await _apiService.get('$apiUrl/laporan/stok-gudang');
       return response;
     } catch (error) {
-      print("Error mengambil laporan stok gudang: $error");
-      throw error;
+      developer.log('Error mengambil laporan stok: $error');
+      return null;
     }
   }
 
   Future<dynamic> getBarangByPenitip(int idPenitip) async {
     try {
-      print('Mencoba mengambil barang untuk penitip ID: $idPenitip');
+      print('=== DEBUG: getBarangByPenitip ===');
+      print('Mengambil barang penitip ID: $idPenitip');
+      final response = await _apiService.get('penitip/$idPenitip/penitipan');
+      print('Raw Response: $response');
 
-      // Gunakan endpoint penitipan barang yang tersedia
-      final penitipanResponse = await _apiService.get(
-        '/penitip/$idPenitip/penitipan',
-      );
-
-      if (penitipanResponse == null) {
-        print('Respon penitipan null');
-        return [];
-      }
-
-      // Debugging
-      print('Respon penitipan: ${penitipanResponse is Map ? 'Map' : 'List'}');
+      if (response == null) return [];
 
       List<dynamic> penitipanList = [];
-
-      // Cek format respons yang diterima
-      if (penitipanResponse is Map && penitipanResponse.containsKey('data')) {
-        print('Format respon dengan wrapper success/data');
-
-        if (penitipanResponse['success'] == true) {
-          penitipanList = penitipanResponse['data'] as List<dynamic>;
-          print('Jumlah penitipan: ${penitipanList.length}');
-        } else {
-          print(
-            'API mengembalikan success:false: ${penitipanResponse['message']}',
-          );
-          return [];
+      if (response is Map && response.containsKey('data')) {
+        print('Response is Map with data field');
+        if (response['success'] == true) {
+          print('Success is true, extracting data list');
+          penitipanList = response['data'] as List<dynamic>;
         }
-      } else if (penitipanResponse is List) {
-        print('Format respon langsung list');
-        penitipanList = penitipanResponse;
-      } else {
-        print('Format respon tidak dikenali: $penitipanResponse');
-        return [];
+      } else if (response is List) {
+        print('Response is direct List');
+        penitipanList = response;
       }
 
-      // Kumpulkan semua barang dari penitipan
-      List<dynamic> allBarang = [];
+      print('=== DEBUG: Processing Penitipan List ===');
+      print('Found ${penitipanList.length} penitipan records');
 
+      List<dynamic> allBarang = [];
       for (var penitipan in penitipanList) {
-        if (penitipan.containsKey('barang')) {
-          if (penitipan['barang'] is List) {
-            allBarang.addAll(penitipan['barang']);
-            print(
-              'Menambahkan ${penitipan['barang'].length} barang dari penitipan ID ${penitipan['id_penitipan']}',
-            );
-          } else if (penitipan['barang'] != null) {
-            allBarang.add(penitipan['barang']);
-            print(
-              'Menambahkan 1 barang dari penitipan ID ${penitipan['id_penitipan']}',
-            );
+        if (penitipan is Map && penitipan.containsKey('barang')) {
+          var barangList = penitipan['barang'];
+          if (barangList is List) {
+            for (var barang in barangList) {
+              if (barang is Map) {
+                // Log barang basic info
+                print('\n=== Barang Info ===');
+                print('ID: ${barang['id_barang']}');
+                print('Nama: ${barang['nama_barang']}');
+                print('Status: ${barang['status_barang']}');
+
+                // Add penitipan data
+                barang['penitipan_barang'] = {
+                  'id_penitipan': penitipan['id_penitipan'],
+                  'id_penitip': penitipan['id_penitip'],
+                  'tanggal_awal_penitipan': penitipan['tanggal_awal_penitipan'],
+                  'tanggal_akhir_penitipan':
+                      penitipan['tanggal_akhir_penitipan'],
+                  'nama_petugas_qc': penitipan['nama_petugas_qc'],
+                  'id_pegawai': penitipan['id_pegawai'],
+                  'penitip': penitipan['penitip'],
+                  'pegawai': penitipan['pegawai'],
+                };
+
+                // Check and log detail transaksi
+                if (barang.containsKey('detail_transaksi')) {
+                  print('\n=== Detail Transaksi Info ===');
+                  var detailTransaksi = barang['detail_transaksi'];
+                  print('Detail Transaksi Raw: $detailTransaksi');
+
+                  if (detailTransaksi != null && detailTransaksi is Map) {
+                    print(
+                      'ID Detail Transaksi: ${detailTransaksi['id_detail_transaksi']}',
+                    );
+                    print('Harga Item: ${detailTransaksi['harga_item']}');
+
+                    // Check and log transaksi
+                    if (detailTransaksi.containsKey('transaksi')) {
+                      print('\n=== Transaksi Info ===');
+                      var transaksi = detailTransaksi['transaksi'];
+                      print('Transaksi Raw: $transaksi');
+
+                      if (transaksi != null && transaksi is Map) {
+                        print('ID Transaksi: ${transaksi['id_transaksi']}');
+                        print('Status: ${transaksi['status_transaksi']}');
+                        print('Tanggal: ${transaksi['tanggal_transaksi']}');
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            allBarang.addAll(barangList);
+          } else if (barangList != null) {
+            allBarang.add(barangList);
           }
         }
       }
 
+      print('\n=== DEBUG: Final Result ===');
       print('Total barang ditemukan: ${allBarang.length}');
+      if (allBarang.isNotEmpty) {
+        var firstItem = allBarang.first;
+        print('Sample data structure:');
+        print('Available keys: ${firstItem.keys.toList()}');
+        if (firstItem.containsKey('detail_transaksi')) {
+          print('Has detail_transaksi: Yes');
+          print('Detail transaksi structure: ${firstItem['detail_transaksi']}');
+        } else {
+          print('Has detail_transaksi: No');
+        }
+      }
+
       return allBarang;
-    } catch (error) {
-      print('Error saat mengambil barang penitip: $error');
-      throw error;
+    } catch (error, stackTrace) {
+      print('Error mengambil barang penitip: $error');
+      print('Stack trace: $stackTrace');
+      return [];
     }
   }
 }

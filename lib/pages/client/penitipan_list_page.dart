@@ -40,7 +40,7 @@ class _PenitipanListPageState extends State<PenitipanListPage> {
         return;
       }
 
-      final response = await _penitipanBarangApi.getPenitipanBarangByIdPenitip(
+      final response = await _penitipanBarangApi.getPenitipanByPenitipId(
         idPenitip,
       );
 
@@ -56,9 +56,11 @@ class _PenitipanListPageState extends State<PenitipanListPage> {
                 .toList();
 
         // Urutkan berdasarkan tanggal penitipan terbaru
-        penitipanList.sort(
-          (a, b) => b.tanggalAwalPenitipan.compareTo(a.tanggalAwalPenitipan),
-        );
+        penitipanList.sort((a, b) {
+          final dateA = a.tanggalAwalPenitipan ?? '';
+          final dateB = b.tanggalAwalPenitipan ?? '';
+          return dateB.compareTo(dateA);
+        });
 
         setState(() {
           _penitipanList = penitipanList;
@@ -66,16 +68,17 @@ class _PenitipanListPageState extends State<PenitipanListPage> {
         });
       } else if (response is List) {
         // Format response langsung list
-
         final penitipanList =
             response
                 .map((item) => PenitipanBarangModel.fromJson(item))
                 .toList();
 
         // Urutkan berdasarkan tanggal penitipan terbaru
-        penitipanList.sort(
-          (a, b) => b.tanggalAwalPenitipan.compareTo(a.tanggalAwalPenitipan),
-        );
+        penitipanList.sort((a, b) {
+          final dateA = a.tanggalAwalPenitipan ?? '';
+          final dateB = b.tanggalAwalPenitipan ?? '';
+          return dateB.compareTo(dateA);
+        });
 
         setState(() {
           _penitipanList = penitipanList;
@@ -183,9 +186,9 @@ class _PenitipanListPageState extends State<PenitipanListPage> {
   }
 
   Widget _buildPenitipanCard(PenitipanBarangModel penitipan) {
-    // Format tanggal
-    String tglAwal = _formatDate(penitipan.tanggalAwalPenitipan);
-    String tglAkhir = _formatDate(penitipan.tanggalAkhirPenitipan);
+    // Format tanggal dengan penanganan null
+    String tglAwal = _formatDate(penitipan.tanggalAwalPenitipan ?? '-');
+    String tglAkhir = _formatDate(penitipan.tanggalAkhirPenitipan ?? '-');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 20),
@@ -266,7 +269,7 @@ class _PenitipanListPageState extends State<PenitipanListPage> {
                     Icon(Icons.person, size: 16, color: Colors.grey.shade700),
                     const SizedBox(width: 8),
                     Text(
-                      'Petugas QC: ${penitipan.namaPetugasQc}',
+                      'Petugas QC: ${penitipan.namaPetugasQc ?? "-"}',
                       style: TextStyle(color: Colors.grey.shade700),
                     ),
                   ],
@@ -477,6 +480,8 @@ class _PenitipanListPageState extends State<PenitipanListPage> {
   }
 
   String _formatDate(String isoDate) {
+    if (isoDate == '-') return '-';
+
     try {
       final date = DateTime.parse(isoDate);
       final day = date.day.toString().padLeft(2, '0');
@@ -484,7 +489,10 @@ class _PenitipanListPageState extends State<PenitipanListPage> {
       final year = date.year.toString();
       return '$day/$month/$year';
     } catch (e) {
-      return isoDate.substring(0, 10);
+      if (isoDate.length >= 10) {
+        return isoDate.substring(0, 10);
+      }
+      return isoDate;
     }
   }
 }

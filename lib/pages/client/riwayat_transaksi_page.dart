@@ -39,6 +39,9 @@ class _RiwayatTransaksiPageState extends State<RiwayatTransaksiPage> {
     try {
       // Mendapatkan data user dari local storage
       final userData = await LocalStorage.getUserMap();
+      print('=== DEBUG: User Data ===');
+      print('User data from local storage: $userData');
+
       if (userData == null) {
         setState(() {
           _errorMessage = 'Anda perlu login terlebih dahulu';
@@ -47,8 +50,10 @@ class _RiwayatTransaksiPageState extends State<RiwayatTransaksiPage> {
         return;
       }
 
-      // Mendapatkan id_pembeli dari user
+      // Mendapatkan id_pembeli dari user dan pastikan itu integer
       final idPembeli = userData['id_pembeli'];
+      print('ID Pembeli from user data: $idPembeli (${idPembeli.runtimeType})');
+
       if (idPembeli == null) {
         setState(() {
           _errorMessage = 'Data pembeli tidak ditemukan';
@@ -57,20 +62,69 @@ class _RiwayatTransaksiPageState extends State<RiwayatTransaksiPage> {
         return;
       }
 
-      // Mendapatkan daftar transaksi dari API
-      final response = await _transaksiApi.getTransaksiByPembeli(idPembeli);
+      // Pastikan idPembeli adalah integer
+      final int idPembeliInt = int.tryParse(idPembeli.toString()) ?? 0;
+      print('Converted ID Pembeli: $idPembeliInt');
 
-      if (response != null) {
+      if (idPembeliInt == 0) {
+        setState(() {
+          _errorMessage = 'ID Pembeli tidak valid';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Mendapatkan daftar transaksi dari API
+      final response = await _transaksiApi.getTransaksiByPembeli(idPembeliInt);
+      print('=== DEBUG: API Response ===');
+      print('Raw response type: ${response.runtimeType}');
+      print('Raw response: $response');
+
+      if (response != null && response is! String) {
         // Parse daftar transaksi
         List<TransaksiModel> transaksiList = [];
         if (response is List) {
+          print('Processing list response with ${response.length} items');
           transaksiList =
-              response.map((item) => TransaksiModel.fromJson(item)).toList();
-        } else if (response is Map && response.containsKey('data')) {
-          transaksiList =
-              (response['data'] as List)
-                  .map((item) => TransaksiModel.fromJson(item))
+              response
+                  .map((item) {
+                    print('Processing item: $item');
+                    try {
+                      return TransaksiModel.fromJson(item);
+                    } catch (e) {
+                      print('Error parsing item: $e');
+                      return null;
+                    }
+                  })
+                  .whereType<TransaksiModel>()
                   .toList();
+        } else if (response is Map && response.containsKey('data')) {
+          if (response['data'] is List) {
+            print(
+              'Processing data wrapper with ${response['data'].length} items',
+            );
+            transaksiList =
+                (response['data'] as List)
+                    .map((item) {
+                      print('Processing item from data: $item');
+                      try {
+                        return TransaksiModel.fromJson(item);
+                      } catch (e) {
+                        print('Error parsing item from data: $e');
+                        return null;
+                      }
+                    })
+                    .whereType<TransaksiModel>()
+                    .toList();
+          }
+        }
+
+        print('=== DEBUG: Parsed Results ===');
+        print('Number of transactions parsed: ${transaksiList.length}');
+        for (var transaksi in transaksiList) {
+          print('Transaksi ID: ${transaksi.idTransaksi}');
+          print('Status: ${transaksi.statusTransaksi}');
+          print('Tanggal: ${transaksi.tanggalTransaksi}');
         }
 
         setState(() {
@@ -79,10 +133,18 @@ class _RiwayatTransaksiPageState extends State<RiwayatTransaksiPage> {
 
         // Ambil detail untuk setiap transaksi
         for (var transaksi in _transaksiList) {
+          print('Fetching details for transaction ${transaksi.idTransaksi}');
           await _loadDetailTransaksi(transaksi.idTransaksi);
         }
+      } else {
+        print('Response is null or invalid: $response');
+        setState(() {
+          _errorMessage = 'Tidak ada data transaksi';
+        });
       }
     } catch (e) {
+      print('=== DEBUG: Error ===');
+      print('Stack trace: ${e.toString()}');
       setState(() {
         _errorMessage = 'Gagal memuat riwayat transaksi: ${e.toString()}';
       });
@@ -95,22 +157,53 @@ class _RiwayatTransaksiPageState extends State<RiwayatTransaksiPage> {
 
   Future<void> _loadDetailTransaksi(int idTransaksi) async {
     try {
+      print('=== DEBUG: Loading Detail Transaksi ===');
+      print('Loading details for transaction ID: $idTransaksi');
       final response = await _detailTransaksiApi.getDetailTransaksiByTransaksi(
         idTransaksi,
       );
+      print('Detail transaksi response: $response');
 
       if (response != null) {
         List<DetailTransaksiModel> detailList = [];
         if (response is List) {
+          print('Processing ${response.length} detail items');
           detailList =
               response
-                  .map((item) => DetailTransaksiModel.fromJson(item))
+                  .map((item) {
+                    print('Processing detail item: $item');
+                    try {
+                      return DetailTransaksiModel.fromJson(item);
+                    } catch (e) {
+                      print('Error parsing detail item: $e');
+                      return null;
+                    }
+                  })
+                  .whereType<DetailTransaksiModel>()
                   .toList();
         } else if (response is Map && response.containsKey('data')) {
+          print('Processing details from data wrapper');
           detailList =
               (response['data'] as List)
-                  .map((item) => DetailTransaksiModel.fromJson(item))
+                  .map((item) {
+                    print('Processing detail from data: $item');
+                    try {
+                      return DetailTransaksiModel.fromJson(item);
+                    } catch (e) {
+                      print('Error parsing detail from data: $e');
+                      return null;
+                    }
+                  })
+                  .whereType<DetailTransaksiModel>()
                   .toList();
+        }
+
+        print('=== DEBUG: Detail Results ===');
+        print('Number of details parsed: ${detailList.length}');
+        for (var detail in detailList) {
+          print('Detail ID: ${detail.idDetailTransaksi}');
+          print('Barang ID: ${detail.idBarang}');
+          print('Harga: ${detail.hargaItem}');
         }
 
         setState(() {
@@ -118,7 +211,9 @@ class _RiwayatTransaksiPageState extends State<RiwayatTransaksiPage> {
         });
       }
     } catch (e) {
+      print('=== DEBUG: Detail Error ===');
       print('Error memuat detail transaksi: ${e.toString()}');
+      print('Stack trace: $e');
     }
   }
 

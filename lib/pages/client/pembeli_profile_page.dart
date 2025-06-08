@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../api/auth_api.dart';
 import '../../api/user_api.dart';
-import '../../components/custom_button.dart';
 import '../../models/user_profile_model.dart';
 import '../../routes/app_routes.dart';
 import '../../utils/local_storage.dart';
+import 'dart:convert';
+import 'riwayat_transaksi_page.dart';
 
 class PembeliProfilePage extends StatefulWidget {
   const PembeliProfilePage({super.key});
@@ -19,6 +20,7 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
   final AuthApi _authApi = AuthApi();
   final UserApi _userApi = UserApi();
   int _selectedNavIndex = 3; // 3 untuk halaman profile
+  bool _isPersonalInfoExpanded = false;
 
   @override
   void initState() {
@@ -47,20 +49,21 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
     try {
       // Periksa status login terlebih dahulu
       final isLoggedIn = await _authApi.isLoggedIn();
+      print("Status login: $isLoggedIn");
 
       // Coba dapatkan data dari local storage
       final localProfile = await LocalStorage.getProfile();
 
       if (localProfile != null) {
-        // Gunakan data lokal jika tersedia
+        print("Data profil ditemukan di local storage");
+        print("Data profil local: ${jsonEncode(localProfile.toJson())}");
+
         setState(() {
           _userProfile = localProfile;
         });
 
         if (!isLoggedIn) {
-          // Jika data lokal ada tapi token tidak ada, coba refresh token
           try {
-            // Simpan token dari data local jika ada
             if (localProfile.user.token != null &&
                 localProfile.user.token!.isNotEmpty) {
               await LocalStorage.saveToken(localProfile.user.token!);
@@ -77,21 +80,24 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
           (localProfile?.user.token != null &&
               localProfile!.user.token!.isNotEmpty)) {
         try {
+          print("Mencoba mengambil data profil dari API...");
           final apiProfile = await _userApi.getProfile();
 
-          setState(() {
-            _userProfile = apiProfile;
-          });
+          if (apiProfile != null) {
+            print("Profil berhasil diambil dari API");
+            print("Data profil API: ${jsonEncode(apiProfile.toJson())}");
 
-          // Simpan data terbaru ke local storage
-          await LocalStorage.saveProfile(apiProfile);
-          print('Data profil diperbarui dari API');
+            setState(() {
+              _userProfile = apiProfile;
+            });
+
+            // Simpan data terbaru ke local storage
+            await LocalStorage.saveProfile(apiProfile);
+            print('Data profil diperbarui dari API');
+          }
         } catch (e) {
           print('Error saat mengambil profil dari API: $e');
-          // Jika gagal mengambil dari API tapi masih ada data lokal,
-          // tetap gunakan data lokal dan jangan tampilkan error
           if (_userProfile == null) {
-            // Hanya tampilkan error jika tidak ada data lokal
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -103,17 +109,9 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
             }
           }
         }
-      } else {
-        // Jika tidak login dan tidak ada data lokal, kosongkan profil
-        if (_userProfile == null) {
-          setState(() {
-            _userProfile = null;
-          });
-        }
       }
     } catch (e) {
       print('Error loading user data: $e');
-      // Tampilkan pesan error jika terjadi kesalahan
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Gagal memuat data profil: ${e.toString()}')),
@@ -123,27 +121,6 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
       setState(() {
         _isLoading = false;
       });
-    }
-  }
-
-  Future<void> _handleLogout() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await _authApi.logout();
-      if (mounted) {
-        AppRoutes.navigateAndClear(context, AppRoutes.login);
-      }
-    } catch (e) {
-      debugPrint('Error during logout: $e');
-      // Tetap hapus data dari local storage meskipun API logout gagal
-      await LocalStorage.clearAuthData();
-
-      if (mounted) {
-        AppRoutes.navigateAndClear(context, AppRoutes.login);
-      }
     }
   }
 
@@ -198,6 +175,7 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
             icon: const Icon(Icons.settings_outlined),
             onPressed: () {
               // Navigasi ke halaman pengaturan
+              Navigator.pushNamed(context, AppRoutes.settings);
             },
           ),
         ],
@@ -242,19 +220,8 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
                 child: Column(
                   children: [
                     _buildProfileHeader(),
+                    _buildPersonalInfoSection(),
                     _buildProfileMenu(),
-                    const SizedBox(height: 20),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: CustomButton(
-                        text: 'Logout',
-                        onPressed: () {
-                          _showLogoutDialog();
-                        },
-                        backgroundColor: Colors.red.shade600,
-                        textColor: Colors.white,
-                      ),
-                    ),
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -339,32 +306,131 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade100,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.amber.shade400),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.star, color: Colors.amber.shade700, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${_userProfile!.poin} Poin',
-                        style: TextStyle(
-                          color: Colors.amber.shade800,
-                          fontWeight: FontWeight.bold,
+                if (_userProfile!.poin > 0) ...[
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade100,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.amber.shade400),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.star,
+                          color: Colors.amber.shade700,
+                          size: 18,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Text(
+                          '${_userProfile!.poin} Poin',
+                          style: TextStyle(
+                            color: Colors.amber.shade800,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPersonalInfoSection() {
+    if (_userProfile?.pembeli == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () {
+              setState(() {
+                _isPersonalInfoExpanded = !_isPersonalInfoExpanded;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.person_outline,
+                      color: Colors.green.shade600,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Informasi Pribadi',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _isPersonalInfoExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: Colors.grey.shade600,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_isPersonalInfoExpanded) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildInfoItem(
+                    'Nama Lengkap',
+                    _userProfile!.pembeli!.namaPembeli,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildInfoItem(
+                    'No. Telepon',
+                    _userProfile!.pembeli!.noHpDefault ?? '-',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildInfoItem('Email', _userProfile!.user.email),
+                  const SizedBox(height: 12),
+                  _buildInfoItem('Status', 'Pembeli Aktif'),
+                  const SizedBox(height: 12),
+                  _buildInfoItem('Jumlah Poin', '${_userProfile!.poin} Poin'),
+                ],
+              ),
             ),
           ],
         ],
@@ -394,10 +460,10 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
             title: 'Riwayat Transaksi',
             subtitle: 'Lihat semua transaksi Anda',
             onTap: () {
-              // Untuk sementara tidak ada navigasi
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Fitur ini sedang dalam pengembangan'),
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const RiwayatTransaksiPage(),
                 ),
               );
             },
@@ -460,32 +526,20 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
     );
   }
 
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Konfirmasi Logout'),
-            content: const Text('Apakah Anda yakin ingin keluar?'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Text('Batal'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _handleLogout();
-                },
-                child: const Text(
-                  'Logout',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
-          ),
+  Widget _buildInfoItem(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value.isNotEmpty ? value : '-',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
+      ],
     );
   }
 }

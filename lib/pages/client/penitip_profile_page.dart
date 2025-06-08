@@ -3,9 +3,11 @@ import '../../api/auth_api.dart';
 import '../../api/user_api.dart';
 import '../../api/barang_api.dart';
 import '../../api/penitip_api.dart';
+import '../../api/badge_api.dart';
 import '../../models/user_profile_model.dart';
 import '../../models/barang_penitipan_model.dart';
 import '../../models/penitip_model.dart';
+import '../../models/badge_model.dart';
 import '../../routes/app_routes.dart';
 import '../../utils/local_storage.dart';
 import 'dart:convert';
@@ -19,11 +21,13 @@ class PenitipProfilePage extends StatefulWidget {
 
 class _PenitipProfilePageState extends State<PenitipProfilePage> {
   UserProfileModel? _userProfile;
+  BadgeModel? _topSellerBadge;
   bool _isLoading = true;
   final AuthApi _authApi = AuthApi();
   final UserApi _userApi = UserApi();
   final BarangApi _barangApi = BarangApi();
   final PenitipApi _penitipApi = PenitipApi();
+  final BadgeApi _badgeApi = BadgeApi();
   int _selectedNavIndex = 1; // 1 untuk halaman profile, 0 untuk home
 
   // Tambahkan state untuk expandable sections
@@ -33,6 +37,7 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
   void initState() {
     super.initState();
     _loadUserData();
+    _loadTopSellerBadge();
 
     // Tambahkan listener untuk perubahan fokus
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -42,6 +47,7 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
         focusScope.addListener(() {
           if (focusScope.hasFocus && mounted) {
             _loadUserData();
+            _loadTopSellerBadge();
           }
         });
       }
@@ -214,6 +220,23 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
     }
   }
 
+  Future<void> _loadTopSellerBadge() async {
+    if (_userProfile?.penitip == null) return;
+
+    try {
+      final response = await _badgeApi.getTopSeller();
+      if (response != null &&
+          response['data'] != null &&
+          response['data']['id_penitip'] == _userProfile?.penitip?.idPenitip) {
+        setState(() {
+          _topSellerBadge = BadgeModel.fromJson(response['data']);
+        });
+      }
+    } catch (e) {
+      print('Error loading top seller badge: $e');
+    }
+  }
+
   void _onNavBarTapped(int index) {
     if (_selectedNavIndex == index) return;
 
@@ -328,10 +351,45 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
       color: Colors.green.shade50,
       child: Column(
         children: [
-          CircleAvatar(
-            radius: 50,
-            backgroundColor: Colors.green.shade200,
-            child: Icon(Icons.person, size: 60, color: Colors.green.shade700),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              CircleAvatar(
+                radius: 50,
+                backgroundColor: Colors.green.shade200,
+                child: Icon(
+                  Icons.person,
+                  size: 60,
+                  color: Colors.green.shade700,
+                ),
+              ),
+              if (_topSellerBadge != null)
+                Positioned(
+                  right: -10,
+                  top: -10,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade400,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 3,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.star,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 16),
           Text(
@@ -348,6 +406,52 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
             Text(
               _userProfile!.phone,
               style: TextStyle(fontSize: 16, color: Colors.grey.shade700),
+            ),
+          ],
+          if (_topSellerBadge != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade100,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.amber.shade400),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    spreadRadius: 1,
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.workspace_premium, color: Colors.amber.shade700),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'TOP SELLER',
+                        style: TextStyle(
+                          color: Colors.amber.shade900,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        _topSellerBadge?.deskripsi ?? '',
+                        style: TextStyle(
+                          color: Colors.amber.shade800,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
           if (_userProfile?.user.role == 'Penitip' &&
