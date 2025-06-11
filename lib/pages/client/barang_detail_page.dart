@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:developer' as developer;
 import '../../api/barang_api.dart';
 import '../../api/foto_barang_api.dart';
 import '../../models/barang_model.dart';
@@ -29,8 +30,11 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
   void initState() {
     super.initState();
 
+    developer.log('BarangDetailPage initialized for ID: ${widget.idBarang}');
+    
     // Jika ada initial data, gunakan dulu
     if (widget.initialData != null) {
+      developer.log('Using initial data for barang: ${widget.initialData!.namaBarang}');
       setState(() {
         _barang = widget.initialData;
         _isLoading = false;
@@ -43,29 +47,38 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
 
   Future<void> _loadBarangDetail() async {
     try {
+      developer.log('Loading detail for barang ID: ${widget.idBarang}');
+      
       setState(() {
         _isLoading = _barang == null; // set loading hanya jika belum ada data
       });
 
       // Ambil detail barang
       final response = await _barangApi.getBarangById(widget.idBarang);
+      developer.log('Received API response for barang: $response');
 
       if (response != null) {
         BarangModel barangDetail;
 
         if (response is Map && response.containsKey('data')) {
           // Format response dengan wrapper
+          developer.log('Response format: wrapped with data key');
           barangDetail = BarangModel.fromJson(response['data']);
         } else {
           // Format response langsung
+          developer.log('Response format: direct object');
           barangDetail = BarangModel.fromJson(response);
         }
 
+        developer.log('Successfully parsed barang detail: ${barangDetail.namaBarang}');
+
         // Load foto barang
+        developer.log('Loading photos for barang ID: ${widget.idBarang}');
         final fotoResponse = await _fotoApi.getFotoByBarangId(widget.idBarang);
         List<FotoBarangModel> fotos = [];
 
         if (fotoResponse != null) {
+          developer.log('Received photo response: $fotoResponse');
           if (fotoResponse is List) {
             fotos =
                 fotoResponse
@@ -76,6 +89,9 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
             fotos =
                 dataList.map((item) => FotoBarangModel.fromJson(item)).toList();
           }
+          developer.log('Parsed ${fotos.length} photos for the barang');
+        } else {
+          developer.log('No photos found for the barang');
         }
 
         if (mounted) {
@@ -84,8 +100,10 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
             _fotoList = fotos;
             _isLoading = false;
           });
+          developer.log('State updated with barang data and photos');
         }
       } else {
+        developer.log('ERROR: API returned null response for barang ID: ${widget.idBarang}');
         if (mounted) {
           setState(() {
             _errorMessage = 'Data barang tidak ditemukan';
@@ -94,7 +112,7 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
         }
       }
     } catch (e) {
-      print('Error saat memuat detail barang: $e');
+      developer.log('Error saat memuat detail barang: $e');
       if (mounted) {
         setState(() {
           _errorMessage = 'Gagal memuat detail barang: $e';
@@ -403,67 +421,104 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
     );
   }
 
-  Widget _buildImageCarousel(List<String> images) {
-    if (images.isEmpty) {
+  Widget _buildImageCarousel(List<String> imageUrls) {
+    if (imageUrls.isEmpty) {
+      // No images available
       return Container(
         height: 250,
         color: Colors.grey.shade200,
         child: Center(
-          child: Icon(
-            Icons.image_not_supported,
-            size: 64,
-            color: Colors.grey.shade400,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.image_not_supported,
+                size: 60,
+                color: Colors.grey.shade500,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tidak ada gambar',
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 16,
+                ),
+              ),
+            ],
           ),
         ),
       );
     }
 
-    return Stack(
+    // Images available, build carousel
+    return Column(
       children: [
-        // Image slider
         Container(
           height: 250,
-          color: Colors.black,
+          width: double.infinity,
           child: PageView.builder(
             controller: _pageController,
             onPageChanged: _onPageChanged,
-            itemCount: images.length,
+            itemCount: imageUrls.length,
             itemBuilder: (context, index) {
-              return Image.network(
-                images[index],
-                fit: BoxFit.contain,
-                errorBuilder:
-                    (_, __, ___) => Container(
-                      color: Colors.grey.shade300,
+              developer.log('Rendering image at index $index: ${imageUrls[index]}');
+              return GestureDetector(
+                onTap: () {
+                  // Implement full-screen view if needed
+                },
+                child: Image.network(
+                  imageUrls[index],
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    developer.log('Error loading image: $error');
+                    return Container(
+                      color: Colors.grey.shade200,
                       child: Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          color: Colors.grey.shade500,
-                          size: 50,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.broken_image,
+                              size: 40,
+                              color: Colors.red.shade300,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Gagal memuat gambar',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
+                    );
+                  },
+                ),
               );
             },
           ),
         ),
 
-        // Image counter indicator
-        if (images.length > 1)
-          Positioned(
-            bottom: 10,
-            right: 10,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                '${_currentImageIndex + 1}/${images.length}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+        // Image indicators
+        if (imageUrls.length > 1)
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                imageUrls.length,
+                (index) => Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _currentImageIndex == index
+                        ? Colors.green.shade600
+                        : Colors.grey.shade300,
+                  ),
                 ),
               ),
             ),

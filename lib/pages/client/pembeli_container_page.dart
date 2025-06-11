@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../routes/app_routes.dart';
 import './home_page.dart';
 import './pembeli_profile_page.dart';
+import './barang_detail_page.dart';
 
 // Create a custom NavigatorObserver to detect route changes
 class CustomNavigatorObserver extends NavigatorObserver {
@@ -78,6 +79,22 @@ class _PembeliContainerPageState extends State<PembeliContainerPage> {
         key: _navigatorKeys[0],
         observers: [_observers[0]],
         onGenerateRoute: (RouteSettings settings) {
+          print("DEBUG: Generating route for settings: ${settings.name}");
+          
+          // If this is the detail barang route
+          if (settings.name == AppRoutes.detailBarang) {
+            print("DEBUG: Handling detail barang route in container");
+            final args = settings.arguments as Map<String, dynamic>?;
+            if (args != null && args.containsKey('id_barang')) {
+              final idBarang = args['id_barang'];
+              return MaterialPageRoute(
+                builder: (context) => BarangDetailPage(idBarang: idBarang),
+                settings: settings,
+              );
+            }
+          }
+          
+          // Default is the home page
           return MaterialPageRoute(
             builder: (BuildContext context) => const HomePage(isEmbedded: true),
             settings: settings,

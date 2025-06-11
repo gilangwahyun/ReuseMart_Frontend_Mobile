@@ -6,7 +6,7 @@ import 'dart:developer' as developer;
 
 // URL API untuk mengakses Laravel
 // const String BASE_URL = "http://10.0.2.2:8000";
-const String BASE_URL = "http://192.168.1.4:8000";
+const String BASE_URL = "http://192.168.74.230:8000";
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -69,16 +69,19 @@ class ApiService {
   }
 
   // GET request
-  Future<dynamic> get(String endpoint, {Map<String, String>? queryParameters}) async {
+  Future<dynamic> get(
+    String endpoint, {
+    Map<String, String>? queryParameters,
+  }) async {
     try {
       final formattedEndpoint = _formatEndpoint(endpoint);
       var uri = Uri.parse('$baseUrl/${formattedEndpoint}');
-      
+
       // Add query parameters if provided
       if (queryParameters != null && queryParameters.isNotEmpty) {
         uri = uri.replace(queryParameters: queryParameters);
       }
-      
+
       developer.log('GET Request URL: $uri');
 
       final headers = await _getHeaders();
@@ -87,6 +90,7 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
 
       developer.log('Response GET $endpoint: ${response.statusCode}');
+      developer.log('Response body: ${response.body.substring(0, math.min(response.body.length, 200))}...');
       return _handleResponse(response);
     } catch (error) {
       logError('Error pada GET request', error);
@@ -100,6 +104,7 @@ class ApiService {
       final formattedEndpoint = _formatEndpoint(endpoint);
       final url = '$baseUrl/${formattedEndpoint}';
       developer.log('POST Request URL: $url');
+      developer.log('POST Request data: ${json.encode(data)}');
 
       final headers = await _getHeaders();
       final response = await http
@@ -107,6 +112,7 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
 
       developer.log('Response POST $endpoint: ${response.statusCode}');
+      developer.log('Response body: ${response.body.substring(0, math.min(response.body.length, 200))}...');
       return _handleResponse(response);
     } catch (error) {
       logError('Error pada POST request', error);
@@ -160,6 +166,7 @@ class ApiService {
       try {
         return json.decode(response.body);
       } catch (e) {
+        developer.log('Error decoding JSON response: $e');
         return response.body;
       }
     } else {
@@ -177,6 +184,7 @@ class ApiService {
       final data = json.decode(response.body);
       return data['message'] ?? 'Terjadi kesalahan saat menghubungi server.';
     } catch (e) {
+      developer.log('Error parsing error message: $e');
       return 'Terjadi kesalahan saat menghubungi server. Silakan coba lagi nanti.';
     }
   }

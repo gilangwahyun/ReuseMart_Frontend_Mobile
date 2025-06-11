@@ -196,11 +196,23 @@ class _HomePageState extends State<HomePage> {
     // Navigasi ke halaman detail barang
     print("DEBUG: Navigating to detail page for barang ID: $idBarang");
     try {
-      AppRoutes.navigateTo(
-        context,
-        AppRoutes.detailBarang,
-        arguments: {'id_barang': idBarang},
-      );
+      if (widget.isEmbedded) {
+        // When embedded in container, we need to navigate within the current Navigator
+        // using the correct route name so it can be handled by the container's onGenerateRoute
+        print("DEBUG: Navigating within container using pushNamed");
+        Navigator.of(context).pushNamed(
+          AppRoutes.detailBarang,
+          arguments: {'id_barang': idBarang}
+        );
+      } else {
+        // When not embedded, use the global AppRoutes navigator
+        print("DEBUG: Navigating using AppRoutes.navigateTo");
+        AppRoutes.navigateTo(
+          context,
+          AppRoutes.detailBarang,
+          arguments: {'id_barang': idBarang},
+        );
+      }
       print("DEBUG: Navigation method called successfully");
     } catch (e) {
       print("DEBUG ERROR: Failed to navigate: $e");
