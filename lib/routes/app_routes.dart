@@ -9,6 +9,7 @@ import '../pages/client/penitip_home_page.dart';
 import '../pages/client/barang_penitip_page.dart';
 import '../pages/client/kurir_home_page.dart';
 import '../pages/client/kurir_profile_page.dart';
+import '../pages/client/kurir_delivery_history_page.dart';
 import '../pages/client/hunter_profile_page.dart';
 import '../pages/info/informasi_umum_page.dart';
 import '../pages/splash_screen.dart';
@@ -36,6 +37,7 @@ class AppRoutes {
   // Rute untuk Kurir
   static const String kurirHome = '/kurir/home';
   static const String kurirProfile = '/kurir/profile';
+  static const String kurirDeliveryHistory = '/kurir/delivery-history';
 
   // Rute untuk Hunter
   static const String hunterProfile = '/hunter/profile';
@@ -57,6 +59,7 @@ class AppRoutes {
       penitipBarang: (context) => const BarangPenitipPage(),
       kurirHome: (context) => const KurirHomePage(),
       kurirProfile: (context) => const KurirProfilePage(),
+      kurirDeliveryHistory: (context) => const KurirDeliveryHistoryPage(),
       hunterProfile: (context) => const HunterProfilePage(),
       notificationSettings: (context) => const NotificationSettingsPage(),
       notifications: (context) => const NotificationListPage(),

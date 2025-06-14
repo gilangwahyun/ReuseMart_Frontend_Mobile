@@ -127,6 +127,10 @@ class _KurirProfilePageState extends State<KurirProfilePage> {
     }
   }
 
+  void _navigateToDeliveryHistory() {
+    Navigator.pushNamed(context, AppRoutes.kurirDeliveryHistory);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -187,7 +191,7 @@ class _KurirProfilePageState extends State<KurirProfilePage> {
           children: [
             _buildProfileHeader(),
             _buildProfileDetails(),
-            _buildLogoutButton(),
+            _buildActionButtons(),
           ],
         ),
       ),
@@ -285,6 +289,50 @@ class _KurirProfilePageState extends State<KurirProfilePage> {
     );
   }
 
+  Widget _buildActionButtons() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          // Delivery History Button
+          ElevatedButton.icon(
+            onPressed: _navigateToDeliveryHistory,
+            icon: const Icon(Icons.history),
+            label: const Text('Delivery History'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+              minimumSize: const Size(double.infinity, 0),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Logout Button
+          ElevatedButton.icon(
+            onPressed: _handleLogout,
+            icon: const Icon(Icons.logout),
+            label: const Text('Logout'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+              minimumSize: const Size(double.infinity, 0),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInfoItem({
     required IconData icon,
     required String title,
@@ -324,24 +372,6 @@ class _KurirProfilePageState extends State<KurirProfilePage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildLogoutButton() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      child: ElevatedButton.icon(
-        onPressed: _handleLogout,
-        icon: const Icon(Icons.logout),
-        label: const Text('Logout'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red.shade600,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
       ),
     );
   }
