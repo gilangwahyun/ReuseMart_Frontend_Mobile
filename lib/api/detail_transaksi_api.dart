@@ -33,22 +33,43 @@ class DetailTransaksiApi {
   /// Mendapatkan detail transaksi berdasarkan ID transaksi
   Future<dynamic> getDetailTransaksiByTransaksi(int idTransaksi) async {
     try {
-      print('Mengambil data detail transaksi untuk transaksi ID: $idTransaksi');
-      final response = await _apiService.get('$apiUrl/transaksi/$idTransaksi');
-      print('Response detail transaksi by transaksi: $response');
+      print('=== DEBUG: Detail Transaksi API ===');
+      print('Loading details for transaction ID: $idTransaksi');
+      final response = await _apiService.get(
+        'detailTransaksi/transaksi/$idTransaksi',
+      );
+      print('Raw response: $response');
+      print('Response type: ${response?.runtimeType}');
 
-      // Response akan selalu berupa List karena sudah ditangani di ApiService
+      if (response == null) {
+        print('Response is null');
+        return [];
+      }
+
+      // Handle response in new format (with success, message, data)
+      if (response is Map<String, dynamic>) {
+        print('Response is Map format');
+        if (response['success'] == true) {
+          final List<dynamic> detailList = response['data'] ?? [];
+          print('Success: true, found ${detailList.length} details');
+          return detailList;
+        } else {
+          print('Success: false, message: ${response['message']}');
+          return [];
+        }
+      }
+
+      // Handle response in direct array format
       if (response is List) {
-        print('Raw response type: List<dynamic>');
-        print('Raw response: $response');
-        print('Processing list response with ${response.length} items');
+        print('Response is direct List format');
+        print('Found ${response.length} details');
         return response;
       }
 
       print('Unexpected response type: ${response.runtimeType}');
       return [];
     } catch (error) {
-      print('Error mengambil detail transaksi by transaksi: $error');
+      print('Error in getDetailTransaksiByTransaksi: $error');
       return [];
     }
   }

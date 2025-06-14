@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../api/auth_api.dart';
 import '../../api/barang_api.dart';
 import '../../api/user_api.dart';
 import '../../api/penitip_api.dart';
 import '../../api/penitipan_barang_api.dart';
+import '../../api/api_service.dart';
+import '../../api/foto_barang_api.dart';
 import '../../models/barang_model.dart';
 import '../../models/user_profile_model.dart';
 import '../../models/penitip_model.dart';
 import '../../models/penitipan_barang_model.dart';
+import '../../models/foto_barang_model.dart';
 import '../../routes/app_routes.dart';
 import '../../utils/local_storage.dart';
 import '../../widgets/notification_icon.dart';
 import 'barang_penitip_page.dart';
 import 'penitipan_list_page.dart';
+import 'barang_detail_page.dart';
 
 class PenitipHomePage extends StatefulWidget {
   const PenitipHomePage({super.key});
@@ -28,9 +33,13 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
   final PenitipApi _penitipApi = PenitipApi();
   final BarangApi _barangApi = BarangApi();
   final PenitipanBarangApi _penitipanBarangApi = PenitipanBarangApi();
+  final ApiService _apiService = ApiService();
+  final FotoBarangApi _fotoBarangApi = FotoBarangApi();
 
   UserProfileModel? _userProfile;
   List<BarangModel> _recentBarang = [];
+  Map<int, FotoBarangModel?> _thumbnails =
+      {}; // Menyimpan thumbnail untuk setiap barang
   bool _isLoading = true;
   String? _errorMessage;
   int _selectedNavIndex = 0; // 0 untuk home penitip
@@ -112,20 +121,54 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
         }
       }
 
+      print("\n=== DEBUG: Fetching Barang ===");
+      print("ID Penitip: $idPenitip");
+
       // Ambil data barang dari API
       final response = await _barangApi.getBarangByPenitip(idPenitip!);
+      print("Raw API Response: $response");
 
       if (response is List) {
+        print("\n=== DEBUG: Processing Barang List ===");
+        print("Jumlah barang: ${response.length}");
+
         final barangList =
-            response.map((item) => BarangModel.fromJson(item)).toList();
+            response.map((item) {
+              print("\nProcessing barang item:");
+              print("- ID Barang: ${item['id_barang']}");
+              print("- Nama: ${item['nama_barang']}");
+              if (item['foto_barang'] != null) {
+                print("- Foto barang: ${item['foto_barang']}");
+              }
+              return BarangModel.fromJson(item);
+            }).toList();
 
         // Ambil 5 barang terbaru untuk dashboard
         final recentBarang = barangList.take(5).toList();
+
+        print("\n=== DEBUG: Recent Barang Details ===");
+        for (var barang in recentBarang) {
+          print("\nBarang ID: ${barang.idBarang}");
+          print("Nama: ${barang.namaBarang}");
+          print("Jumlah foto: ${barang.fotoBarang?.length ?? 0}");
+          if (barang.fotoBarang != null) {
+            for (var foto in barang.fotoBarang!) {
+              print(
+                "- Foto ID: ${foto.idFotoBarang}, URL: ${foto.urlFoto}, Thumbnail: ${foto.isThumbnail}",
+              );
+            }
+          }
+        }
 
         setState(() {
           _recentBarang = recentBarang;
           _isLoading = false;
         });
+
+        // Fetch thumbnails untuk setiap barang
+        for (var barang in recentBarang) {
+          await _fetchThumbnailFoto(barang.idBarang);
+        }
       } else {
         print("API mengembalikan format yang tidak dikenali: $response");
         setState(() {
@@ -133,12 +176,39 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       print("Error saat memuat data barang: $e");
+      print("Stack trace: $stackTrace");
       setState(() {
         _errorMessage = 'Gagal memuat data: $e';
         _isLoading = false;
       });
+    }
+  }
+
+  // Fungsi untuk mengambil thumbnail foto
+  Future<void> _fetchThumbnailFoto(int idBarang) async {
+    try {
+      final fotos = await _fotoBarangApi.getFotoBarangByIdBarang(idBarang);
+
+      if (fotos.isNotEmpty) {
+        // Pilih foto dengan is_thumbnail === true
+        final thumbnail = fotos.firstWhere(
+          (f) => f.isThumbnail,
+          orElse: () {
+            // Fallback ke foto pertama (id_foto_barang terkecil)
+            final sortedFotos = List.from(fotos)
+              ..sort((a, b) => a.idFotoBarang.compareTo(b.idFotoBarang));
+            return sortedFotos.first;
+          },
+        );
+
+        setState(() {
+          _thumbnails[idBarang] = thumbnail;
+        });
+      }
+    } catch (e) {
+      print('Error fetching foto barang: $e');
     }
   }
 
@@ -499,6 +569,17 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
   }
 
   Widget _buildBarangItem(BarangModel barang) {
+    print('\n=== DEBUG: _buildBarangItem ===');
+    print('ID Barang: ${barang.idBarang}');
+    print('Nama Barang: ${barang.namaBarang}');
+
+    final thumbnail = _thumbnails[barang.idBarang];
+    if (thumbnail != null) {
+      print('Thumbnail ditemukan: ${thumbnail.urlFoto}');
+    } else {
+      print('Tidak ada thumbnail untuk barang ini');
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -507,13 +588,32 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child:
-              barang.gambarUtama.isNotEmpty
-                  ? Image.network(
-                    barang.gambarUtama,
+              thumbnail != null
+                  ? CachedNetworkImage(
+                    imageUrl: _apiService.getImageUrl(thumbnail.urlFoto),
                     width: 56,
                     height: 56,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _buildNoImage(),
+                    maxHeightDiskCache: 200,
+                    memCacheHeight: 200,
+                    useOldImageOnUrlChange: true,
+                    placeholder:
+                        (context, url) => Container(
+                          width: 56,
+                          height: 56,
+                          color: Colors.grey.shade200,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.green.shade600,
+                            ),
+                          ),
+                        ),
+                    errorWidget: (context, url, error) {
+                      print('Error loading image: $error');
+                      print('Failed URL: $url');
+                      return _buildNoImage();
+                    },
                   )
                   : _buildNoImage(),
         ),
@@ -549,7 +649,16 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
         ),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {
-          // Navigasi ke detail barang
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (context) => BarangDetailPage(
+                    idBarang: barang.idBarang,
+                    initialData: barang,
+                  ),
+            ),
+          );
         },
       ),
     );

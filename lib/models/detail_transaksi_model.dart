@@ -19,81 +19,43 @@ class DetailTransaksiModel {
   });
 
   factory DetailTransaksiModel.fromJson(Map<String, dynamic> json) {
-    try {
-      // Cek jika kita mendapatkan barang, untuk mencegah infinite recursion
-      BarangModel? barangData;
-      if (json['barang'] != null) {
-        try {
-          // Hati-hati untuk mencegah infinite recursion
-          // Tambahkan flag khusus ke json untuk mencegah parsing detail_transaksi lagi
-          Map<String, dynamic> barangJson = Map<String, dynamic>.from(
-            json['barang'],
-          );
-          // Hapus detail_transaksi dari barang untuk mencegah infinite recursion
-          barangJson.remove('detail_transaksi');
-          barangJson.remove('detailTransaksi');
-
-          barangData = BarangModel.fromJson(barangJson);
-        } catch (e) {
-          print("Error parsing barang dalam DetailTransaksiModel: $e");
-          print("Raw barang data: ${json['barang']}");
-        }
-      }
-
-      // Parse transaksi jika tersedia
-      TransaksiModel? transaksiData;
-      if (json['transaksi'] != null) {
-        try {
-          transaksiData = TransaksiModel.fromJson(json['transaksi']);
-        } catch (e) {
-          print("Error parsing transaksi dalam DetailTransaksiModel: $e");
-          print("Raw transaksi data: ${json['transaksi']}");
-        }
-      }
-
-      return DetailTransaksiModel(
-        idDetailTransaksi:
-            int.tryParse(json['id_detail_transaksi']?.toString() ?? '0') ?? 0,
-        idBarang: int.tryParse(json['id_barang']?.toString() ?? '0') ?? 0,
-        idTransaksi: int.tryParse(json['id_transaksi']?.toString() ?? '0') ?? 0,
-        hargaItem:
-            json['harga_item'] != null
-                ? double.tryParse(json['harga_item'].toString()) ?? 0.0
-                : 0.0,
-        barang: barangData,
-        transaksi: transaksiData,
-      );
-    } catch (e) {
-      print("ERROR parsing DetailTransaksiModel: $e");
-      print("Raw JSON: $json");
-
-      // Return default model untuk hindari aplikasi crash
-      return DetailTransaksiModel(
-        idDetailTransaksi: 0,
-        idBarang: 0,
-        idTransaksi: 0,
-        hargaItem: 0.0,
-      );
-    }
+    return DetailTransaksiModel(
+      idDetailTransaksi: json['id_detail_transaksi'] ?? 0,
+      idBarang: json['id_barang'] ?? 0,
+      idTransaksi: json['id_transaksi'] ?? 0,
+      hargaItem: (json['harga_item'] ?? 0).toDouble(),
+      barang:
+          json['barang'] != null ? BarangModel.fromJson(json['barang']) : null,
+      transaksi:
+          json['transaksi'] != null
+              ? TransaksiModel.fromJson(json['transaksi'])
+              : null,
+    );
   }
 
   Map<String, dynamic> toJson() {
-    return {
+    final Map<String, dynamic> data = {
       'id_detail_transaksi': idDetailTransaksi,
       'id_barang': idBarang,
       'id_transaksi': idTransaksi,
       'harga_item': hargaItem,
     };
+    if (barang != null) {
+      data['barang'] = barang!.toJson();
+    }
+    if (transaksi != null) {
+      data['transaksi'] = transaksi!.toJson();
+    }
+    return data;
   }
 
-  // Helper untuk format harga ke rupiah
   String get hargaItemFormatted {
     return formatRupiah(hargaItem);
   }
 
-  // Format angka ke Rupiah
-  static String formatRupiah(double amount) {
-    String priceStr = amount.toStringAsFixed(0);
+  String formatRupiah(double price) {
+    int priceInt = price.toInt();
+    String priceStr = priceInt.toString();
     String result = '';
     int count = 0;
 
@@ -106,24 +68,5 @@ class DetailTransaksiModel {
     }
 
     return result;
-  }
-
-  // Tambahkan method copyWith
-  DetailTransaksiModel copyWith({
-    int? idDetailTransaksi,
-    int? idBarang,
-    int? idTransaksi,
-    double? hargaItem,
-    BarangModel? barang,
-    TransaksiModel? transaksi,
-  }) {
-    return DetailTransaksiModel(
-      idDetailTransaksi: idDetailTransaksi ?? this.idDetailTransaksi,
-      idBarang: idBarang ?? this.idBarang,
-      idTransaksi: idTransaksi ?? this.idTransaksi,
-      hargaItem: hargaItem ?? this.hargaItem,
-      barang: barang ?? this.barang,
-      transaksi: transaksi ?? this.transaksi,
-    );
   }
 }

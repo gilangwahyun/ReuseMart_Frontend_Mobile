@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:developer' as developer;
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../api/barang_api.dart';
+import '../../api/api_service.dart';
 import '../../models/barang_model.dart';
 import '../../models/foto_barang_model.dart';
-import '../../models/detail_transaksi_model.dart';
-import '../../models/alokasi_donasi_model.dart';
-import '../../models/penitipan_barang_model.dart';
-import '../../models/transaksi_model.dart';
 
 class BarangDetailPage extends StatefulWidget {
   final int idBarang;
@@ -21,6 +19,7 @@ class BarangDetailPage extends StatefulWidget {
 class _BarangDetailPageState extends State<BarangDetailPage>
     with TickerProviderStateMixin {
   final BarangApi _barangApi = BarangApi();
+  final ApiService _apiService = ApiService();
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -592,182 +591,15 @@ class _BarangDetailPageState extends State<BarangDetailPage>
                   if (barang.detailTransaksi != null) ...[
                     // ID Transaksi
                     _buildDetailRow(
-                      'ID Transaksi',
-                      '#${barang.detailTransaksi!.idTransaksi}',
+                      'Status Transaksi',
+                      '#${barang.detailTransaksi!.transaksi!.statusTransaksi}',
                     ),
 
                     // Harga Item
                     _buildDetailRow(
-                      'Harga Item',
-                      'Rp ${_formatRupiah(barang.detailTransaksi!.hargaItem)}',
+                      'Tanggal Transaksi',
+                      '${_formatDateWithTime(barang.detailTransaksi!.transaksi!.tanggalTransaksi ?? '-')}',
                     ),
-
-                    if (barang.detailTransaksi!.transaksi != null) ...[
-                      const SizedBox(height: 16),
-                      const Divider(height: 1),
-                      const SizedBox(height: 16),
-
-                      Row(
-                        children: [
-                          Icon(Icons.payment, color: Colors.green.shade800),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Informasi Pembayaran',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green.shade800,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Status Pembayaran dengan warna
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _getPaymentStatusColor(
-                            barang.detailTransaksi!.transaksi!.statusTransaksi,
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          barang.detailTransaksi!.transaksi!.statusTransaksi,
-                          style: TextStyle(
-                            color: _getPaymentStatusTextColor(
-                              barang
-                                  .detailTransaksi!
-                                  .transaksi!
-                                  .statusTransaksi,
-                            ),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Tanggal Transaksi
-                      _buildDetailRow(
-                        'Tanggal',
-                        _formatDateWithTime(
-                          barang.detailTransaksi!.transaksi!.tanggalTransaksi ??
-                              '-',
-                        ),
-                      ),
-
-                      // Total Pembayaran
-                      _buildDetailRow(
-                        'Total Pembayaran',
-                        'Rp ${_formatRupiah(barang.detailTransaksi!.transaksi!.totalHarga ?? 0.0)}',
-                      ),
-
-                      // Metode Pengiriman
-                      if (barang.detailTransaksi!.transaksi!.metodePengiriman !=
-                          null)
-                        _buildDetailRow(
-                          'Metode Pengiriman',
-                          barang.detailTransaksi!.transaksi!.metodePengiriman!,
-                        ),
-
-                      const SizedBox(height: 16),
-                      const Divider(height: 1),
-                      const SizedBox(height: 16),
-
-                      // Informasi Pembeli
-                      Row(
-                        children: [
-                          Icon(Icons.person, color: Colors.green.shade800),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Informasi Pembeli',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green.shade800,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      if (barang.detailTransaksi!.transaksi!.pembeli !=
-                          null) ...[
-                        _buildDetailRow(
-                          'Nama',
-                          barang
-                              .detailTransaksi!
-                              .transaksi!
-                              .pembeli!
-                              .namaPembeli,
-                        ),
-                        if (barang
-                                .detailTransaksi!
-                                .transaksi!
-                                .pembeli!
-                                .noHpDefault !=
-                            null)
-                          _buildDetailRow(
-                            'No. Telepon',
-                            barang
-                                .detailTransaksi!
-                                .transaksi!
-                                .pembeli!
-                                .noHpDefault!,
-                          ),
-                      ] else
-                        _buildDetailRow(
-                          'ID Pembeli',
-                          '#${barang.detailTransaksi!.transaksi!.idPembeli}',
-                        ),
-
-                      // Rating jika ada
-                      if (barang.rating != null) ...[
-                        const SizedBox(height: 16),
-                        const Divider(height: 1),
-                        const SizedBox(height: 16),
-
-                        Row(
-                          children: [
-                            Icon(Icons.star, color: Colors.amber),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Rating Pembeli',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey.shade800,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            ...List.generate(5, (index) {
-                              return Icon(
-                                index < (barang.rating ?? 0).floor()
-                                    ? Icons.star
-                                    : Icons.star_border,
-                                color: Colors.amber,
-                                size: 24,
-                              );
-                            }),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${barang.rating}/5',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
                   ] else
                     Center(
                       child: Column(
@@ -948,31 +780,20 @@ class _BarangDetailPageState extends State<BarangDetailPage>
             itemCount: images.length,
             itemBuilder: (context, index) {
               String imageUrl = images[index];
-              if (!imageUrl.startsWith('http')) {
-                imageUrl =
-                    'http://10.0.2.2:8000/${imageUrl.startsWith('/') ? imageUrl.substring(1) : imageUrl}';
-              }
-
-              return Image.network(
-                imageUrl,
+              return CachedNetworkImage(
+                imageUrl: _apiService.getImageUrl(imageUrl),
                 fit: BoxFit.contain,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Center(
-                    child: CircularProgressIndicator(
-                      value:
-                          loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                                  loadingProgress.expectedTotalBytes!
-                              : null,
-                      color: Colors.green,
+                maxHeightDiskCache: 800,
+                memCacheHeight: 800,
+                useOldImageOnUrlChange: true,
+                placeholder:
+                    (context, url) => Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.green.shade600,
+                      ),
                     ),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  developer.log(
-                    'Error loading image: $imageUrl, error: $error',
-                  );
+                errorWidget: (context, url, error) {
+                  developer.log('Error loading image: $url, error: $error');
                   return Container(
                     color: Colors.grey.shade300,
                     child: Center(

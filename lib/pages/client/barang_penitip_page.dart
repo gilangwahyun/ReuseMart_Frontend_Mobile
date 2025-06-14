@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import '../../api/penitipan_barang_api.dart';
 import '../../api/penitip_api.dart';
 import '../../api/barang_api.dart';
+import '../../api/api_service.dart';
+import '../../api/foto_barang_api.dart';
 import '../../models/penitipan_barang_model.dart';
 import '../../models/barang_model.dart';
 import '../../models/user_profile_model.dart';
+import '../../models/foto_barang_model.dart';
 import '../../utils/local_storage.dart';
 import 'barang_detail_page.dart';
 
@@ -19,9 +22,13 @@ class _BarangPenitipPageState extends State<BarangPenitipPage> {
   final PenitipanBarangApi _penitipanApi = PenitipanBarangApi();
   final PenitipApi _penitipApi = PenitipApi();
   final BarangApi _barangApi = BarangApi();
+  final ApiService _apiService = ApiService();
+  final FotoBarangApi _fotoBarangApi = FotoBarangApi();
 
   List<PenitipanBarangModel> _penitipanList = [];
   List<BarangModel> _barangList = [];
+  Map<int, FotoBarangModel?> _thumbnails =
+      {}; // Menyimpan thumbnail untuk setiap barang
   bool _isLoading = true;
   String? _errorMessage;
   UserProfileModel? _userProfile;
@@ -111,6 +118,32 @@ class _BarangPenitipPageState extends State<BarangPenitipPage> {
     }
   }
 
+  // Fungsi untuk mengambil thumbnail foto
+  Future<void> _fetchThumbnailFoto(int idBarang) async {
+    try {
+      final fotos = await _fotoBarangApi.getFotoBarangByIdBarang(idBarang);
+
+      if (fotos.isNotEmpty) {
+        // Pilih foto dengan is_thumbnail === true
+        final thumbnail = fotos.firstWhere(
+          (f) => f.isThumbnail,
+          orElse: () {
+            // Fallback ke foto pertama (id_foto_barang terkecil)
+            final sortedFotos = List.from(fotos)
+              ..sort((a, b) => a.idFotoBarang.compareTo(b.idFotoBarang));
+            return sortedFotos.first;
+          },
+        );
+
+        setState(() {
+          _thumbnails[idBarang] = thumbnail;
+        });
+      }
+    } catch (e) {
+      print('Error fetching foto barang: $e');
+    }
+  }
+
   Future<void> _loadBarangData(int idPenitip) async {
     try {
       setState(() {
@@ -123,13 +156,17 @@ class _BarangPenitipPageState extends State<BarangPenitipPage> {
       if (response is List) {
         final barangList =
             response.map((item) => BarangModel.fromJson(item)).toList();
-
         print("Berhasil mendapatkan ${barangList.length} barang dari penitip");
 
         setState(() {
           _barangList = barangList;
           _isLoading = false;
         });
+
+        // Fetch thumbnails untuk setiap barang
+        for (var barang in barangList) {
+          await _fetchThumbnailFoto(barang.idBarang);
+        }
       } else {
         print("Format response tidak dikenali: $response");
         setState(() {
@@ -247,13 +284,14 @@ class _BarangPenitipPageState extends State<BarangPenitipPage> {
   }
 
   Widget _buildBarangItem(BarangModel barang) {
+    final thumbnail = _thumbnails[barang.idBarang];
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: () {
-          // Navigasi ke halaman detail barang
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -275,9 +313,9 @@ class _BarangPenitipPageState extends State<BarangPenitipPage> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child:
-                    barang.gambarUtama.isNotEmpty
+                    thumbnail != null
                         ? Image.network(
-                          barang.gambarUtama,
+                          _apiService.getImageUrl(thumbnail.urlFoto),
                           width: 80,
                           height: 80,
                           fit: BoxFit.cover,

@@ -1,4 +1,5 @@
 import 'pembeli_model.dart';
+import 'detail_transaksi_model.dart';
 
 class TransaksiModel {
   final int idTransaksi;
@@ -9,6 +10,7 @@ class TransaksiModel {
   final String metodePengiriman;
   final String tanggalTransaksi;
   final PembeliModel? pembeli;
+  final List<DetailTransaksiModel> detailTransaksi;
 
   TransaksiModel({
     required this.idTransaksi,
@@ -19,10 +21,20 @@ class TransaksiModel {
     required this.metodePengiriman,
     required this.tanggalTransaksi,
     this.pembeli,
+    this.detailTransaksi = const [],
   });
 
   factory TransaksiModel.fromJson(Map<String, dynamic> json) {
     try {
+      // Parse detail transaksi jika ada
+      List<DetailTransaksiModel> detailList = [];
+      if (json['detail_transaksi'] != null) {
+        detailList =
+            (json['detail_transaksi'] as List)
+                .map((item) => DetailTransaksiModel.fromJson(item))
+                .toList();
+      }
+
       return TransaksiModel(
         idTransaksi: json['id_transaksi'] ?? 0,
         idPembeli: json['id_pembeli'] ?? 0,
@@ -36,6 +48,7 @@ class TransaksiModel {
             json['pembeli'] != null
                 ? PembeliModel.fromJson(json['pembeli'])
                 : null,
+        detailTransaksi: detailList,
       );
     } catch (e) {
       print('Error parsing TransaksiModel: $e');
@@ -65,6 +78,8 @@ class TransaksiModel {
     if (pembeli != null) {
       data['pembeli'] = pembeli!.toJson();
     }
+    data['detail_transaksi'] =
+        detailTransaksi.map((detail) => detail.toJson()).toList();
     return data;
   }
 
@@ -113,6 +128,7 @@ class TransaksiModel {
     String? metodePengiriman,
     String? tanggalTransaksi,
     PembeliModel? pembeli,
+    List<DetailTransaksiModel>? detailTransaksi,
   }) {
     return TransaksiModel(
       idTransaksi: idTransaksi ?? this.idTransaksi,
@@ -123,6 +139,7 @@ class TransaksiModel {
       metodePengiriman: metodePengiriman ?? this.metodePengiriman,
       tanggalTransaksi: tanggalTransaksi ?? this.tanggalTransaksi,
       pembeli: pembeli ?? this.pembeli,
+      detailTransaksi: detailTransaksi ?? this.detailTransaksi,
     );
   }
 }

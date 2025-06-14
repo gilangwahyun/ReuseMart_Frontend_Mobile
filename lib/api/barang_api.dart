@@ -1,5 +1,7 @@
 import 'api_service.dart';
 import 'dart:developer' as developer;
+import 'dart:convert';
+import '../models/foto_barang_model.dart';
 
 class BarangApi {
   final ApiService _apiService = ApiService();
@@ -200,40 +202,73 @@ class BarangApi {
 
   Future<dynamic> getBarangByPenitip(int idPenitip) async {
     try {
-      print('=== DEBUG: getBarangByPenitip ===');
-      print('Mengambil barang penitip ID: $idPenitip');
-      final response = await _apiService.get('penitip/$idPenitip/penitipan');
-      print('Raw Response: $response');
+      developer.log('\n=== DEBUG: getBarangByPenitip API Call ===');
+      developer.log('Mengambil barang penitip ID: $idPenitip');
+      developer.log('URL: penitip/$idPenitip/penitipan');
 
-      if (response == null) return [];
+      final response = await _apiService.get('penitip/$idPenitip/penitipan');
+
+      // Pretty print response untuk debugging
+      final JsonEncoder encoder = JsonEncoder.withIndent('  ');
+      developer.log('\n=== DEBUG: Raw API Response ===');
+      developer.log('Response type: ${response.runtimeType}');
+      developer.log('Response content:');
+      developer.log(encoder.convert(response));
+
+      if (response == null) {
+        developer.log('Response is null, returning empty list');
+        return [];
+      }
 
       List<dynamic> penitipanList = [];
       if (response is Map && response.containsKey('data')) {
-        print('Response is Map with data field');
+        developer.log('\n=== DEBUG: Response Structure ===');
+        developer.log('Response keys: ${response.keys.toList()}');
+        developer.log('Success value: ${response['success']}');
         if (response['success'] == true) {
-          print('Success is true, extracting data list');
+          developer.log('\n=== DEBUG: Data Content ===');
+          developer.log(encoder.convert(response['data']));
           penitipanList = response['data'] as List<dynamic>;
         }
       } else if (response is List) {
-        print('Response is direct List');
+        developer.log('\n=== DEBUG: Direct List Response ===');
         penitipanList = response;
       }
 
-      print('=== DEBUG: Processing Penitipan List ===');
-      print('Found ${penitipanList.length} penitipan records');
+      developer.log('\n=== DEBUG: Processing Penitipan List ===');
+      developer.log('Found ${penitipanList.length} penitipan records');
 
       List<dynamic> allBarang = [];
       for (var penitipan in penitipanList) {
+        developer.log('\n=== Processing Penitipan ===');
+        developer.log('ID Penitipan: ${penitipan['id_penitipan']}');
+        developer.log('Penitipan data:');
+        developer.log(encoder.convert(penitipan));
+
         if (penitipan is Map && penitipan.containsKey('barang')) {
           var barangList = penitipan['barang'];
+          developer.log('\n=== Barang List Data ===');
+          developer.log('Type: ${barangList.runtimeType}');
+          developer.log('Content:');
+          developer.log(encoder.convert(barangList));
+
           if (barangList is List) {
             for (var barang in barangList) {
               if (barang is Map) {
-                // Log barang basic info
-                print('\n=== Barang Info ===');
-                print('ID: ${barang['id_barang']}');
-                print('Nama: ${barang['nama_barang']}');
-                print('Status: ${barang['status_barang']}');
+                developer.log('\n=== Processing Individual Barang ===');
+                developer.log('Barang data:');
+                developer.log(encoder.convert(barang));
+
+                // Debug foto barang
+                if (barang.containsKey('foto_barang')) {
+                  var fotoList = barang['foto_barang'];
+                  developer.log('\n=== Foto Barang Data ===');
+                  developer.log('Type: ${fotoList.runtimeType}');
+                  developer.log('Content:');
+                  developer.log(encoder.convert(fotoList));
+                } else {
+                  developer.log('\nTidak ada data foto_barang dalam barang');
+                }
 
                 // Add penitipan data
                 barang['penitipan_barang'] = {
@@ -248,59 +283,25 @@ class BarangApi {
                   'pegawai': penitipan['pegawai'],
                 };
 
-                // Check and log detail transaksi
-                if (barang.containsKey('detail_transaksi')) {
-                  print('\n=== Detail Transaksi Info ===');
-                  var detailTransaksi = barang['detail_transaksi'];
-                  print('Detail Transaksi Raw: $detailTransaksi');
-
-                  if (detailTransaksi != null && detailTransaksi is Map) {
-                    print(
-                      'ID Detail Transaksi: ${detailTransaksi['id_detail_transaksi']}',
-                    );
-                    print('Harga Item: ${detailTransaksi['harga_item']}');
-
-                    // Check and log transaksi
-                    if (detailTransaksi.containsKey('transaksi')) {
-                      print('\n=== Transaksi Info ===');
-                      var transaksi = detailTransaksi['transaksi'];
-                      print('Transaksi Raw: $transaksi');
-
-                      if (transaksi != null && transaksi is Map) {
-                        print('ID Transaksi: ${transaksi['id_transaksi']}');
-                        print('Status: ${transaksi['status_transaksi']}');
-                        print('Tanggal: ${transaksi['tanggal_transaksi']}');
-                      }
-                    }
-                  }
-                }
+                allBarang.add(barang);
               }
             }
-            allBarang.addAll(barangList);
-          } else if (barangList != null) {
-            allBarang.add(barangList);
           }
         }
       }
 
-      print('\n=== DEBUG: Final Result ===');
-      print('Total barang ditemukan: ${allBarang.length}');
+      developer.log('\n=== DEBUG: Final Result ===');
+      developer.log('Total barang ditemukan: ${allBarang.length}');
       if (allBarang.isNotEmpty) {
-        var firstItem = allBarang.first;
-        print('Sample data structure:');
-        print('Available keys: ${firstItem.keys.toList()}');
-        if (firstItem.containsKey('detail_transaksi')) {
-          print('Has detail_transaksi: Yes');
-          print('Detail transaksi structure: ${firstItem['detail_transaksi']}');
-        } else {
-          print('Has detail_transaksi: No');
-        }
+        developer.log('Sample first item:');
+        developer.log(encoder.convert(allBarang.first));
       }
 
       return allBarang;
     } catch (error, stackTrace) {
-      print('Error mengambil barang penitip: $error');
-      print('Stack trace: $stackTrace');
+      developer.log('\n=== DEBUG: Error in getBarangByPenitip ===');
+      developer.log('Error: $error');
+      developer.log('Stack trace: $stackTrace');
       return [];
     }
   }

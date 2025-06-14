@@ -5,12 +5,13 @@ import 'dart:developer' as developer;
 import '../utils/local_storage.dart';
 
 // URL API untuk mengakses Laravel - Dibuat public agar dapat diakses di file lain
-const String BASE_URL = "http://10.0.2.2:8000";
-// const String BASE_URL = "http://192.168.1.4:8000";
+// const String BASE_URL = "http://10.0.2.2:8000";
+// const String BASE_URL = "http://192.168.100.89:8000";
+const String BASE_URL = "http://192.168.149.30:8000";
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
-  static bool _debugMode = false;
+  static bool _debugMode = true;
 
   factory ApiService() {
     return _instance;
@@ -72,61 +73,67 @@ class ApiService {
     return endpoint;
   }
 
+  // Helper untuk membuat URL gambar lengkap
+  String getImageUrl(String imagePath) {
+    if (imagePath.isEmpty) return '';
+    if (imagePath.startsWith('http')) return imagePath;
+    return '$BASE_URL/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}';
+  }
+
   // GET request
   Future<dynamic> get(String endpoint) async {
     try {
       final token = await LocalStorage.getToken();
-      final url = Uri.parse('$baseUrl/$endpoint');
+      final url = Uri.parse('$baseUrl/${_formatEndpoint(endpoint)}');
 
-      _log('GET Request to: $url');
+      _log('\n=== GET Request Details ===');
+      _log('URL: $url');
+      _log('Token: $token');
 
-      final Map<String, String> headers = Map<String, String>.from(
-        await _getHeaders(),
-      );
+      final Map<String, String> headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+
       if (token != null) {
         headers['Authorization'] = 'Bearer $token';
       }
 
-      _log('Request headers prepared');
+      _log('Request headers: $headers');
 
       final response = await http.get(url, headers: headers);
 
-      _log('Response status: ${response.statusCode}');
-      _log('Response body: ${response.body}');
+      _log('\n=== Response Details ===');
+      _log('Status code: ${response.statusCode}');
+      _log('Response headers: ${response.headers}');
+      _log('Raw response body: ${response.body}');
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 404) {
         if (response.body.isEmpty) {
-          _log('Response body is empty, returning empty array');
-          return [];
+          _log('Response body is empty');
+          return null;
         }
 
         try {
           final decodedResponse = json.decode(response.body);
+          _log('Decoded response type: ${decodedResponse.runtimeType}');
           _log('Decoded response: $decodedResponse');
-
-          // Jika response adalah Map dengan format success dan data
-          if (decodedResponse is Map && decodedResponse.containsKey('data')) {
-            _log('Response contains data field');
-            return decodedResponse['data'];
-          }
-
           return decodedResponse;
-        } catch (e) {
-          developer.log('Error decoding response: $e');
-          return [];
+        } catch (e, stackTrace) {
+          _log('Error decoding response: $e');
+          _log('Stack trace: $stackTrace');
+          return null;
         }
       } else if (response.statusCode == 401) {
-        // Token tidak valid atau expired
         await LocalStorage.clearToken();
         throw Exception('Unauthorized');
       } else {
-        developer.log(
-          'Error response: ${response.statusCode} - ${response.body}',
-        );
-        return [];
+        _log('Error response: ${response.statusCode} - ${response.body}');
+        return null;
       }
-    } catch (e) {
-      developer.log('Network error: $e');
+    } catch (e, stackTrace) {
+      _log('Network error: $e');
+      _log('Stack trace: $stackTrace');
       rethrow;
     }
   }
@@ -135,7 +142,7 @@ class ApiService {
   Future<dynamic> post(String endpoint, dynamic data) async {
     try {
       final token = await LocalStorage.getToken();
-      final url = Uri.parse('$baseUrl/$endpoint');
+      final url = Uri.parse('$baseUrl/${_formatEndpoint(endpoint)}');
 
       _log('POST Request to: $url');
 
@@ -179,7 +186,7 @@ class ApiService {
   Future<dynamic> put(String endpoint, dynamic data) async {
     try {
       final token = await LocalStorage.getToken();
-      final url = Uri.parse('$baseUrl/$endpoint');
+      final url = Uri.parse('$baseUrl/${_formatEndpoint(endpoint)}');
 
       _log('PUT Request to: $url');
 
@@ -223,7 +230,7 @@ class ApiService {
   Future<dynamic> delete(String endpoint) async {
     try {
       final token = await LocalStorage.getToken();
-      final url = Uri.parse('$baseUrl/$endpoint');
+      final url = Uri.parse('$baseUrl/${_formatEndpoint(endpoint)}');
 
       _log('DELETE Request to: $url');
 

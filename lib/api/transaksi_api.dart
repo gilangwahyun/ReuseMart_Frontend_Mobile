@@ -4,6 +4,11 @@ class TransaksiApi {
   final ApiService _apiService = ApiService();
   final String apiUrl = '/transaksi';
 
+  TransaksiApi() {
+    // Enable debug mode
+    ApiService.setDebugMode(true);
+  }
+
   Future<dynamic> getAllTransaksi() async {
     try {
       print('Mengambil semua transaksi');
@@ -30,22 +35,45 @@ class TransaksiApi {
 
   Future<dynamic> getTransaksiByPembeli(int idPembeli) async {
     try {
-      print('Mengambil transaksi pembeli ID: $idPembeli');
-      final response = await _apiService.get('$apiUrl/pembeli/$idPembeli');
-      print('Response get transaksi by pembeli: $response');
+      final endpoint = 'transaksi/pembeli/$idPembeli';
+      print('=== DEBUG: Transaksi API ===');
+      print('Endpoint: $endpoint');
+      print('Full URL: ${_apiService.baseUrl}/$endpoint');
+      print('ID Pembeli: $idPembeli');
 
-      // Response akan selalu berupa List karena sudah ditangani di ApiService
+      final response = await _apiService.get(endpoint);
+      print('Raw response: $response');
+      print('Response type: ${response?.runtimeType}');
+
+      if (response == null) {
+        print('Response is null');
+        return [];
+      }
+
+      // Handle response in new format (with success, message, data)
+      if (response is Map<String, dynamic>) {
+        print('Response is Map format');
+        if (response['success'] == true) {
+          final List<dynamic> transaksiList = response['data'] ?? [];
+          print('Success: true, found ${transaksiList.length} transactions');
+          return transaksiList;
+        } else {
+          print('Success: false, message: ${response['message']}');
+          return [];
+        }
+      }
+
+      // Handle response in direct array format
       if (response is List) {
-        print('Raw response type: List<dynamic>');
-        print('Raw response: $response');
-        print('Processing list response with ${response.length} items');
+        print('Response is direct List format');
+        print('Found ${response.length} transactions');
         return response;
       }
 
       print('Unexpected response type: ${response.runtimeType}');
       return [];
     } catch (error) {
-      print('Error mengambil transaksi by pembeli: $error');
+      print('Error in getTransaksiByPembeli: $error');
       return [];
     }
   }
