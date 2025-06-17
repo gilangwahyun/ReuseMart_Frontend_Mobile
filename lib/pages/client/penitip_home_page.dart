@@ -21,7 +21,9 @@ import 'penitipan_list_page.dart';
 import 'barang_detail_page.dart';
 
 class PenitipHomePage extends StatefulWidget {
-  const PenitipHomePage({super.key});
+  final bool isEmbedded;
+
+  const PenitipHomePage({super.key, this.isEmbedded = true});
 
   @override
   State<PenitipHomePage> createState() => _PenitipHomePageState();
@@ -67,22 +69,54 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
         return;
       }
 
-      // Ambil data profil
+      // Ambil data profil dari local storage terlebih dahulu
       final profile = await LocalStorage.getProfile();
-      if (profile == null || profile.penitip == null) {
+
+      // Jika data profil tersedia, gunakan data tersebut
+      if (profile != null) {
         setState(() {
-          _errorMessage = 'Profil penitip tidak ditemukan';
-          _isLoading = false;
+          _userProfile = profile;
         });
-        return;
+
+        // Jika data penitip tersedia, langsung load data barang
+        if (profile.penitip != null) {
+          await _loadRecentBarang();
+          return;
+        }
       }
 
-      setState(() {
-        _userProfile = profile;
-      });
+      // Jika tidak ada data di local storage atau tidak ada data penitip, ambil dari API
+      try {
+        final apiProfile = await _userApi.getProfile();
 
-      // Setelah mendapatkan profil, ambil data barang terbaru untuk dashboard
-      await _loadRecentBarang();
+        if (apiProfile != null) {
+          setState(() {
+            _userProfile = apiProfile;
+          });
+
+          // Simpan ke local storage
+          await LocalStorage.saveProfile(apiProfile);
+
+          if (apiProfile.penitip != null) {
+            await LocalStorage.savePenitipId(
+              apiProfile.penitip!.idPenitip.toString(),
+            );
+          }
+
+          // Load data barang
+          await _loadRecentBarang();
+        } else {
+          setState(() {
+            _errorMessage = 'Gagal memuat profil';
+            _isLoading = false;
+          });
+        }
+      } catch (e) {
+        setState(() {
+          _errorMessage = 'Error: $e';
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       setState(() {
         _errorMessage = 'Gagal memuat data: $e';
@@ -98,67 +132,36 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
       // Cara 1: Gunakan ID penitip dari profil
       if (_userProfile?.penitip != null) {
         idPenitip = _userProfile!.penitip!.idPenitip;
-        print("Menggunakan ID penitip dari profil: $idPenitip");
       } else {
         // Cara 2: Coba ambil ID penitip yang tersimpan di localStorage
         idPenitip = await LocalStorage.getPenitipId();
-        if (idPenitip != null) {
-          print("Menggunakan ID penitip dari storage: $idPenitip");
-        } else {
+        if (idPenitip == null) {
           // Cara 3: Coba ambil dari string
           final idPenitipStr = await LocalStorage.getData('id_penitip');
           if (idPenitipStr != null && idPenitipStr.isNotEmpty) {
             idPenitip = int.tryParse(idPenitipStr);
-            print("Menggunakan ID penitip dari storage (string): $idPenitip");
-          } else {
-            print("Tidak menemukan ID penitip yang valid");
-            setState(() {
-              _recentBarang = [];
-              _isLoading = false;
-            });
-            return;
           }
         }
       }
 
-      print("\n=== DEBUG: Fetching Barang ===");
-      print("ID Penitip: $idPenitip");
+      // Jika tidak ada ID penitip yang valid
+      if (idPenitip == null) {
+        setState(() {
+          _recentBarang = [];
+          _isLoading = false;
+        });
+        return;
+      }
 
       // Ambil data barang dari API
-      final response = await _barangApi.getBarangByPenitip(idPenitip!);
-      print("Raw API Response: $response");
+      final response = await _barangApi.getBarangByPenitip(idPenitip);
 
       if (response is List) {
-        print("\n=== DEBUG: Processing Barang List ===");
-        print("Jumlah barang: ${response.length}");
-
         final barangList =
-            response.map((item) {
-              print("\nProcessing barang item:");
-              print("- ID Barang: ${item['id_barang']}");
-              print("- Nama: ${item['nama_barang']}");
-              if (item['foto_barang'] != null) {
-                print("- Foto barang: ${item['foto_barang']}");
-              }
-              return BarangModel.fromJson(item);
-            }).toList();
+            response.map((item) => BarangModel.fromJson(item)).toList();
 
         // Ambil 5 barang terbaru untuk dashboard
         final recentBarang = barangList.take(5).toList();
-
-        print("\n=== DEBUG: Recent Barang Details ===");
-        for (var barang in recentBarang) {
-          print("\nBarang ID: ${barang.idBarang}");
-          print("Nama: ${barang.namaBarang}");
-          print("Jumlah foto: ${barang.fotoBarang?.length ?? 0}");
-          if (barang.fotoBarang != null) {
-            for (var foto in barang.fotoBarang!) {
-              print(
-                "- Foto ID: ${foto.idFotoBarang}, URL: ${foto.urlFoto}, Thumbnail: ${foto.isThumbnail}",
-              );
-            }
-          }
-        }
 
         setState(() {
           _recentBarang = recentBarang;
@@ -170,7 +173,6 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
           await _fetchThumbnailFoto(barang.idBarang);
         }
       } else {
-        print("API mengembalikan format yang tidak dikenali: $response");
         setState(() {
           _recentBarang = [];
           _isLoading = false;
@@ -185,7 +187,6 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
       });
     }
   }
-
 
   // Fungsi untuk mengambil thumbnail foto
   Future<void> _fetchThumbnailFoto(int idBarang) async {
@@ -220,12 +221,15 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
       _selectedNavIndex = index;
     });
 
+    // Jika halaman ini disematkan dalam container, tidak perlu navigasi antar tab
+    if (widget.isEmbedded) return;
+
+    // Hanya navigasi jika tidak disematkan dalam container
     switch (index) {
       case 0:
         // Sudah di halaman home
         break;
       case 1:
-        // Navigasi ke halaman profil
         AppRoutes.navigateAndReplace(context, AppRoutes.penitipProfile);
         break;
     }
@@ -282,6 +286,34 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
       );
     }
 
+    // Jika halaman ini tidak disematkan (standalone), gunakan Scaffold dengan AppBar
+    if (!widget.isEmbedded) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('ReuseMart Penitip'),
+          backgroundColor: Colors.green.shade600,
+          actions: [
+            NotificationIcon(color: Colors.white, badgeColor: Colors.amber),
+          ],
+        ),
+        body: _buildHomeContent(),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _selectedNavIndex,
+          onTap: _onNavBarTapped,
+          selectedItemColor: Colors.green.shade700,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          ],
+        ),
+      );
+    }
+
+    // Jika halaman ini disematkan (embedded), hanya tampilkan konten tanpa Scaffold
+    return _buildHomeContent();
+  }
+
+  Widget _buildHomeContent() {
     return RefreshIndicator(
       onRefresh: _loadUserData,
       child: SingleChildScrollView(

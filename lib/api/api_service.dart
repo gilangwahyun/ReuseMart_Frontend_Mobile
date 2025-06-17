@@ -4,12 +4,14 @@ import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as developer;
 import '../utils/local_storage.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:async';
 
 // URL API untuk mengakses Laravel - Dibuat public agar dapat diakses di file lain
-// const String BASE_URL = "http://10.0.2.2:8000";
+// const String BASE_URL = "http://10.0.2.2:8000"; // Emulator
 // const String BASE_URL = "http://192.168.74.230:8000";
-// const String BASE_URL = "http://192.168.100.89:8000";
-const String BASE_URL = "http://192.168.149.30:8000";
+const String BASE_URL = "http://192.168.100.89:8000"; // Wifi Kos
+// const String BASE_URL = "http://192.168.149.30:8000"; // Hotspot HP
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -91,6 +93,7 @@ class ApiService {
   Future<dynamic> get(
     String endpoint, {
     Map<String, String>? queryParameters,
+    Duration timeout = const Duration(seconds: 30),
   }) async {
     try {
       final token = await LocalStorage.getToken();
@@ -99,6 +102,7 @@ class ApiService {
       _log('\n=== GET Request Details ===');
       _log('URL: $url');
       _log('Token: $token');
+      _log('Timeout: ${timeout.inSeconds} seconds');
 
       final Map<String, String> headers = {
         'Content-Type': 'application/json',
@@ -111,7 +115,15 @@ class ApiService {
 
       _log('Request headers: $headers');
 
-      final response = await http.get(url, headers: headers);
+      final response = await http
+          .get(url, headers: headers)
+          .timeout(
+            timeout,
+            onTimeout: () {
+              _log('Request timed out after ${timeout.inSeconds} seconds');
+              throw TimeoutException('Request timed out');
+            },
+          );
 
       _log('\n=== Response Details ===');
       _log('Status code: ${response.statusCode}');

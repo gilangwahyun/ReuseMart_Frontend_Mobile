@@ -91,6 +91,46 @@ class BarangModel {
       developer.log('Raw JSON:');
       developer.log(encoder.convert(json));
 
+      // Debug kategori
+      developer.log('\n=== DEBUG: Parsing Kategori Barang ===');
+      developer.log('ID Kategori: ${json['id_kategori']}');
+      if (json['kategori'] != null) {
+        developer.log('Kategori field exists');
+        developer.log('Kategori type: ${json['kategori'].runtimeType}');
+        developer.log('Kategori content:');
+        developer.log(encoder.convert(json['kategori']));
+      } else {
+        developer.log('Kategori field is null');
+      }
+
+      // Cek field alternatif untuk kategori
+      if (json['kategori_barang'] != null) {
+        developer.log('Kategori alternatif (kategori_barang) ditemukan:');
+        developer.log(encoder.convert(json['kategori_barang']));
+      }
+
+      // Parse kategori
+      KategoriBarangModel? kategoriData;
+      if (json['kategori'] != null) {
+        try {
+          kategoriData = KategoriBarangModel.fromJson(json['kategori']);
+          developer.log(
+            'Berhasil parse kategori: ${kategoriData.namaKategori}',
+          );
+        } catch (e) {
+          developer.log('Error parsing kategori: $e');
+        }
+      } else if (json['kategori_barang'] != null) {
+        try {
+          kategoriData = KategoriBarangModel.fromJson(json['kategori_barang']);
+          developer.log(
+            'Berhasil parse kategori_barang: ${kategoriData.namaKategori}',
+          );
+        } catch (e) {
+          developer.log('Error parsing kategori_barang: $e');
+        }
+      }
+
       // Parse foto barang jika tersedia
       List<FotoBarangModel>? fotoData;
       developer.log('\n=== DEBUG: Parsing Foto Barang ===');
@@ -163,10 +203,7 @@ class BarangModel {
         berat: json['berat'] ?? 0,
         rating: (json['rating'] ?? 0).toDouble(),
         statusBarang: json['status_barang'] ?? 'Tersedia',
-        kategori:
-            json['kategori'] != null
-                ? KategoriBarangModel.fromJson(json['kategori'])
-                : null,
+        kategori: kategoriData,
         penitipanBarang:
             json['penitipan_barang'] != null
                 ? PenitipanBarangModel.fromJson(json['penitipan_barang'])

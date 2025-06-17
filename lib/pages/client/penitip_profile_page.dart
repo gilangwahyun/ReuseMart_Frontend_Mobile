@@ -13,7 +13,9 @@ import '../../utils/local_storage.dart';
 import 'dart:convert';
 
 class PenitipProfilePage extends StatefulWidget {
-  const PenitipProfilePage({super.key});
+  final bool isEmbedded;
+
+  const PenitipProfilePage({super.key, this.isEmbedded = true});
 
   @override
   State<PenitipProfilePage> createState() => _PenitipProfilePageState();
@@ -269,11 +271,16 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
       _selectedNavIndex = index;
     });
 
+    // Jika halaman ini disematkan dalam container, tidak perlu navigasi antar tab
+    if (widget.isEmbedded) return;
+
+    // Hanya navigasi jika tidak disematkan dalam container
     switch (index) {
       case 0:
         AppRoutes.navigateAndReplace(context, AppRoutes.penitipHome);
         break;
       case 1:
+        // Sudah di halaman profil
         break;
     }
   }
@@ -310,38 +317,6 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
               onPressed: _loadUserData,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green.shade600,
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profil Saya'),
-        backgroundColor: Colors.green.shade600,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              Navigator.pushNamed(context, AppRoutes.settings);
-            },
-          ),
-        ],
-      ),
-      body:
-          _userProfile == null
-              ? _buildNotLoggedIn()
-              : RefreshIndicator(
-                onRefresh: _initializeData,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: Column(
-                    children: [
-                      _buildProfileHeader(),
-                      if (_topSellerBadge != null) _buildBadgeCard(),
-                      _buildStatsRow(),
-                      _buildPersonalInfoSection(),
-                      _buildProfileMenu(),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
-                ),
               ),
               child: const Text('Coba Lagi'),
             ),
@@ -350,14 +325,55 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
       );
     }
 
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: Column(
-        children: [
-          _buildProfileHeader(),
-          _buildProfileInfo(),
-          _buildLogoutButton(),
-        ],
+    // Jika halaman ini tidak disematkan (standalone), gunakan Scaffold dengan AppBar
+    if (!widget.isEmbedded) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Profil Saya'),
+          backgroundColor: Colors.green.shade600,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              onPressed: () {
+                Navigator.pushNamed(context, AppRoutes.settings);
+              },
+            ),
+          ],
+        ),
+        body: _buildProfileContent(),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _selectedNavIndex,
+          onTap: _onNavBarTapped,
+          selectedItemColor: Colors.green.shade700,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          ],
+        ),
+      );
+    }
+
+    // Jika halaman ini disematkan (embedded), hanya tampilkan konten tanpa Scaffold
+    return _buildProfileContent();
+  }
+
+  Widget _buildProfileContent() {
+    return RefreshIndicator(
+      onRefresh: _initializeData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          children: [
+            _buildProfileHeader(),
+            if (_topSellerBadge != null) _buildBadgeCard(),
+            _buildStatsRow(),
+            _buildPersonalInfoSection(),
+            _buildProfileMenu(),
+            _buildLogoutButton(),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
@@ -819,46 +835,37 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
       ),
       child: Column(
         children: [
-          _buildMenuItem(
-            icon: Icons.inventory,
-            title: 'Barang Saya',
-            subtitle: 'Lihat semua barang penitipan Anda',
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.inventory, color: Colors.green.shade600),
+            ),
+            title: const Text(
+              'Barang Saya',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            subtitle: Text(
+              'Lihat semua barang penitipan Anda',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+            ),
+            trailing: Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: Colors.grey.shade400,
+            ),
             onTap: () {
               AppRoutes.navigateTo(context, AppRoutes.penitipBarang);
             },
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildInfoItem({
-    required IconData icon,
-    required String title,
-    required String value,
-  }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.green.shade50,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: Colors.green.shade600),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-      ),
-      trailing: Icon(
-        Icons.arrow_forward_ios,
-        size: 16,
-        color: Colors.grey.shade400,
       ),
     );
   }
@@ -872,21 +879,22 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
           // Show confirmation dialog
           final shouldLogout = await showDialog<bool>(
             context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Konfirmasi Logout'),
-              content: const Text('Apakah Anda yakin ingin keluar?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Batal'),
+            builder:
+                (context) => AlertDialog(
+                  title: const Text('Konfirmasi Logout'),
+                  content: const Text('Apakah Anda yakin ingin keluar?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Batal'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Ya, Keluar'),
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    ),
+                  ],
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Ya, Keluar'),
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
-                ),
-              ],
-            ),
           );
 
           if (shouldLogout == true) {

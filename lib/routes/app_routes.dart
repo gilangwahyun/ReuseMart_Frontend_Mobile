@@ -6,6 +6,7 @@ import '../models/pegawai_model.dart';
 import '../pages/auth/login_page.dart';
 import '../pages/client/home_page.dart';
 import '../pages/client/barang_detail_page.dart';
+import '../pages/client/barang_detail_pembeli_page.dart';
 import '../pages/client/pembeli_profile_page.dart';
 import '../pages/client/penitip_profile_page.dart';
 import '../pages/client/penitip_home_page.dart';
@@ -33,11 +34,12 @@ class AppRoutes {
   static const String home = '/home';
   static const String detailBarang = '/barang/detail';
   static const String pembeliProfile = '/pembeli_profile';
-  static const String penitipProfile = '/penitip_profile';
+  static const String penitipProfile = '/penitip/profile';
   static const String notificationSettings = '/notification_settings';
   static const String notifications = '/notifications';
   static const String settings = '/settings';
   static const String merchandise = '/merchandise';
+  static const String detailBarangPembeli = '/detail-barang-pembeli';
 
   // Rute untuk Pembeli
   static const String pembeliContainer = '/pembeli/container';
@@ -76,7 +78,7 @@ class AppRoutes {
             body: Center(child: Text('Error: Tidak ada ID barang')),
           );
         }
-        
+
         try {
           final Map<String, dynamic> mapArgs = args as Map<String, dynamic>;
           final idBarang = mapArgs['id_barang'];
@@ -90,8 +92,8 @@ class AppRoutes {
         }
       },
       pembeliProfile: (context) => const PembeliProfilePage(isEmbedded: false),
-      penitipProfile: (context) => const PenitipProfilePage(),
-      penitipHome: (context) => const PenitipHomePage(),
+      penitipProfile: (context) => const PenitipProfilePage(isEmbedded: false),
+      penitipHome: (context) => const PenitipHomePage(isEmbedded: false),
       penitipContainer: (context) => const PenitipContainerPage(),
       penitipCreateBarang:
           (context) => const Scaffold(
@@ -108,6 +110,24 @@ class AppRoutes {
       notifications: (context) => const NotificationListPage(),
       settings: (context) => const SettingsPage(),
       merchandise: (context) => const MerchandisePage(),
+      detailBarangPembeli: (context) {
+        final args = ModalRoute.of(context)!.settings.arguments;
+        if (args == null) {
+          return const Scaffold(
+            body: Center(child: Text('Error: Tidak ada ID barang')),
+          );
+        }
+
+        try {
+          final Map<String, dynamic> mapArgs = args as Map<String, dynamic>;
+          final int idBarang = mapArgs['id_barang'] as int? ?? 0;
+          return BarangDetailPembeliPage(idBarang: idBarang);
+        } catch (e) {
+          return Scaffold(
+            body: Center(child: Text('Error: Format argumen tidak valid: $e')),
+          );
+        }
+      },
     };
   }
 
@@ -174,7 +194,7 @@ class AppRoutes {
       } else if (role == 'Pegawai') {
         // For employees, check jabatan ID to determine the specific role
         print("Role is Pegawai, checking jabatan...");
-        
+
         // Get user ID from userData
         final userId = userData?['id_user'];
         if (userId != null) {
@@ -182,13 +202,13 @@ class AppRoutes {
             // Fetch pegawai data by user ID
             final pegawaiApi = PegawaiApi();
             final pegawaiData = await pegawaiApi.getPegawaiByUserId(userId);
-            
+
             if (pegawaiData != null) {
               final pegawai = PegawaiModel.fromJson(pegawaiData);
               final idJabatan = pegawai.idJabatan;
-              
+
               print("Pegawai found with jabatan ID: $idJabatan");
-              
+
               // Navigate based on jabatan ID
               if (idJabatan == 5) {
                 // Hunter (ID 5)
@@ -207,9 +227,11 @@ class AppRoutes {
             // Fallback to default page if error occurs
           }
         }
-        
+
         // Default fallback for Pegawai if jabatan can't be determined
-        print("Could not determine specific pegawai role, navigating to default home");
+        print(
+          "Could not determine specific pegawai role, navigating to default home",
+        );
         navigateAndClear(context, home);
       } else {
         // Default untuk role Pembeli atau lainnya
@@ -220,6 +242,35 @@ class AppRoutes {
       // Jika belum login, navigasi ke informasi umum
       print("Not logged in, navigating to general info");
       navigateAndClear(context, informasiUmum);
+    }
+  }
+
+  static Route<dynamic> onGenerateRoute(RouteSettings settings) {
+    switch (settings.name) {
+      case detailBarang:
+        final args = settings.arguments as Map<String, dynamic>?;
+        final idBarang = args?['id_barang'] as int? ?? 0;
+        return MaterialPageRoute(
+          builder: (context) => BarangDetailPage(idBarang: idBarang),
+        );
+
+      case detailBarangPembeli:
+        final args = settings.arguments as Map<String, dynamic>?;
+        final idBarang = args?['id_barang'] as int? ?? 0;
+        return MaterialPageRoute(
+          builder: (context) => BarangDetailPembeliPage(idBarang: idBarang),
+        );
+
+      default:
+        // Return a fallback route instead of null
+        return MaterialPageRoute(
+          builder:
+              (context) => Scaffold(
+                body: Center(
+                  child: Text('Route tidak ditemukan: ${settings.name}'),
+                ),
+              ),
+        );
     }
   }
 }

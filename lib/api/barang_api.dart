@@ -20,14 +20,34 @@ class BarangApi {
 
   Future<dynamic> getAllActiveBarang() async {
     try {
+      developer.log('=== DEBUG: getAllActiveBarang ===');
       developer.log('Mengambil semua barang aktif');
+
+      // Gunakan endpoint yang lebih sederhana jika yang kompleks lambat
+      String endpoint = '$apiUrl/cari-status?status=Aktif&with=kategori';
+      developer.log('Mencoba endpoint: $endpoint');
+
+      // Tambahkan timeout untuk menghindari loading yang terlalu lama
       final response = await _apiService.get(
-        '$apiUrl/cari-status?status=Aktif',
+        endpoint,
+        timeout: const Duration(seconds: 10),
       );
+
+      if (response == null) {
+        developer.log('Response null dari API barang aktif');
+        // Coba endpoint alternatif jika endpoint pertama gagal
+        developer.log('Mencoba endpoint alternatif: $apiUrl?with=kategori');
+        final alternativeResponse = await _apiService.get(
+          '$apiUrl?with=kategori',
+          timeout: const Duration(seconds: 10),
+        );
+        return alternativeResponse;
+      }
+
       return response;
     } catch (error) {
       developer.log('Error mengambil barang aktif: $error');
-      return [];
+      return {'success': false, 'message': 'Error: $error', 'data': []};
     }
   }
 
@@ -128,6 +148,35 @@ class BarangApi {
     } catch (error) {
       developer.log('Error mencari barang by kategori: $error');
       return [];
+    }
+  }
+
+  Future<dynamic> getBarangByKategoriId(int idKategori) async {
+    try {
+      developer.log('Mencari barang dengan ID kategori: $idKategori');
+
+      // Coba endpoint pertama
+      String endpoint =
+          '$apiUrl/cari-kategori-id?id_kategori=$idKategori&with=kategori';
+      developer.log('Mencoba endpoint: $endpoint');
+
+      try {
+        final response = await _apiService.get(endpoint);
+        if (response != null) {
+          return response;
+        }
+      } catch (e) {
+        developer.log('Endpoint pertama gagal: $e');
+      }
+
+      // Jika endpoint pertama gagal, coba endpoint alternatif
+      endpoint = '$apiUrl/kategori/$idKategori?with=kategori';
+      developer.log('Mencoba endpoint alternatif: $endpoint');
+      final response = await _apiService.get(endpoint);
+      return response;
+    } catch (error) {
+      developer.log('Error mencari barang by ID kategori: $error');
+      return {'success': false, 'message': 'Error: $error', 'data': []};
     }
   }
 
