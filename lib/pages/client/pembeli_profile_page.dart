@@ -4,11 +4,14 @@ import '../../api/user_api.dart';
 import '../../models/user_profile_model.dart';
 import '../../routes/app_routes.dart';
 import '../../utils/local_storage.dart';
+import 'merchandise_page.dart';
 import 'dart:convert';
 import 'riwayat_transaksi_page.dart';
 
 class PembeliProfilePage extends StatefulWidget {
-  const PembeliProfilePage({super.key});
+  final bool isEmbedded;
+  
+  const PembeliProfilePage({super.key, this.isEmbedded = false});
 
   @override
   State<PembeliProfilePage> createState() => _PembeliProfilePageState();
@@ -19,7 +22,8 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
   bool _isLoading = true;
   final AuthApi _authApi = AuthApi();
   final UserApi _userApi = UserApi();
-  int _selectedNavIndex = 3;
+  int _selectedNavIndex = 3; // 3 untuk halaman profile
+  String? _error;
   bool _isPersonalInfoExpanded = false;
 
   @override
@@ -96,6 +100,42 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
     }
   }
 
+  Future<void> _handleLogout() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _authApi.logout();
+      
+      // Clear any local user data
+      await LocalStorage.clearAuthData();
+      
+      // Navigate to login page
+      if (mounted) {
+        // Use navigateAndClear to remove all previous routes and set a named route
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRoutes.login,
+          (Route<dynamic> route) => false,
+          arguments: {'source': 'logout'},
+        );
+      }
+    } catch (e) {
+      debugPrint('Error during logout: $e');
+      // Even if API logout fails, still clear local data and navigate to login
+      await LocalStorage.clearAuthData();
+
+      if (mounted) {
+        // Use navigateAndClear to remove all previous routes and set a named route
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRoutes.login,
+          (Route<dynamic> route) => false,
+          arguments: {'source': 'logout'},
+        );
+      }
+    }
+  }
+
   void _onNavBarTapped(int index) {
     if (_selectedNavIndex == index) return;
 
@@ -103,6 +143,11 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
       _selectedNavIndex = index;
     });
 
+    // When embedded in container, we don't need navigation between tabs
+    if (widget.isEmbedded) return;
+
+    // Only navigate if not embedded in container
+    AppRoutes.navigateAndReplace(context, AppRoutes.pembeliContainer);
     switch (index) {
       case 0:
         AppRoutes.navigateAndReplace(context, AppRoutes.home);
@@ -118,20 +163,8 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Profil'),
-          backgroundColor: Colors.green.shade600,
-          elevation: 0,
-        ),
-        body: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade600),
-          ),
-        ),
-      );
-    }
+    // Use widget.isEmbedded instead of checking route
+    final bool isEmbedded = widget.isEmbedded;
 
     return Scaffold(
       appBar: AppBar(
@@ -140,8 +173,70 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined),
+            icon: const Icon(Icons.settings),
             onPressed: () {
+              AppRoutes.navigateTo(context, AppRoutes.settings);
+            },
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Colors.green.shade600,
+                ),
+              ),
+            )
+          : _error != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Error: $_error',
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _loadUserData,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade600,
+                        ),
+                        child: const Text('Coba Lagi'),
+                      ),
+                    ],
+                  ),
+                )
+              : _userProfile == null
+                  ? const Center(
+                      child: Text('Tidak ada data profil'),
+                    )
+                  : SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          _buildProfileHeader(),
+                          _buildProfileMenu(),
+                          const SizedBox(height: 20),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: CustomButton(
+                              text: 'Logout',
+                              onPressed: () {
+                                _showLogoutDialog();
+                              },
+                              backgroundColor: Colors.red.shade600,
+                              textColor: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
+      // Only show bottom navigation when not embedded in container
+      bottomNavigationBar: isEmbedded ? null : BottomNavigationBar(
+
               Navigator.pushNamed(context, AppRoutes.settings);
             },
           ),
@@ -166,6 +261,7 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
                 ),
               ),
       bottomNavigationBar: BottomNavigationBar(
+
         currentIndex: _selectedNavIndex,
         onTap: _onNavBarTapped,
         type: BottomNavigationBarType.fixed,
@@ -535,6 +631,14 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
             title: 'Tukar Poin',
             subtitle: 'Tukar poin dengan hadiah menarik',
             onTap: () {
+              print("Tukar Poin clicked, navigating to merchandise");
+              
+              // Use regular Navigator.push when embedded in a container
+              // This allows navigation within the nested navigator
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const MerchandisePage()),
+              );
               // Navigasi ke halaman tukar poin
             },
           ),

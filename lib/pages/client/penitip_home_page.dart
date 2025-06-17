@@ -186,6 +186,7 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
     }
   }
 
+
   // Fungsi untuk mengambil thumbnail foto
   Future<void> _fetchThumbnailFoto(int idBarang) async {
     try {
@@ -249,80 +250,50 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('ReuseMart'),
-          backgroundColor: Colors.green.shade600,
-        ),
-        body: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade600),
-          ),
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade600),
         ),
       );
     }
 
     if (_errorMessage != null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('ReuseMart'),
-          backgroundColor: Colors.green.shade600,
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
-              const SizedBox(height: 16),
-              Text(
-                _errorMessage!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => _loadUserData(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade600,
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => _loadUserData(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade600,
-                ),
-                child: const Text('Coba Lagi'),
-              ),
-            ],
-          ),
+              child: const Text('Coba Lagi'),
+            ),
+          ],
         ),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('ReuseMart'),
-        backgroundColor: Colors.green.shade600,
-        actions: [
-          NotificationIcon(color: Colors.white, badgeColor: Colors.amber),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadUserData,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildWelcomeBanner(),
-              _buildMenuButtons(),
-              _buildRecentBarangSection(),
-            ],
-          ),
+    return RefreshIndicator(
+      onRefresh: _loadUserData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildWelcomeBanner(),
+            _buildActionsGrid(),
+            _buildRecentBarang(),
+          ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedNavIndex,
-        onTap: _onNavBarTapped,
-        selectedItemColor: Colors.green.shade700,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Beranda'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
-        ],
       ),
     );
   }
@@ -421,7 +392,7 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
     );
   }
 
-  Widget _buildMenuButtons() {
+  Widget _buildActionsGrid() {
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -507,7 +478,7 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
     );
   }
 
-  Widget _buildRecentBarangSection() {
+  Widget _buildRecentBarang() {
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(

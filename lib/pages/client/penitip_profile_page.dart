@@ -281,20 +281,35 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Profil'),
-          backgroundColor: Colors.green.shade600,
-          elevation: 0,
-        ),
-        body: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade600),
-          ),
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade600),
         ),
       );
     }
 
+    // Jika tidak ada data profil
+    if (_userProfile == null || _userProfile!.penitip == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+            const SizedBox(height: 16),
+            const Text(
+              'Data profil tidak ditemukan',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Silakan coba lagi atau hubungi administrator',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _loadUserData,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade600,
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profil Saya'),
@@ -328,13 +343,20 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
                   ),
                 ),
               ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedNavIndex,
-        onTap: _onNavBarTapped,
-        selectedItemColor: Colors.green.shade700,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Beranda'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+              child: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Column(
+        children: [
+          _buildProfileHeader(),
+          _buildProfileInfo(),
+          _buildLogoutButton(),
         ],
       ),
     );
@@ -687,6 +709,7 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           InkWell(
             onTap: () {
@@ -809,11 +832,10 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
     );
   }
 
-  Widget _buildMenuItem({
+  Widget _buildInfoItem({
     required IconData icon,
     required String title,
-    required String subtitle,
-    required VoidCallback onTap,
+    required String value,
   }) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -838,7 +860,51 @@ class _PenitipProfilePageState extends State<PenitipProfilePage> {
         size: 16,
         color: Colors.grey.shade400,
       ),
-      onTap: onTap,
+    );
+  }
+
+  Widget _buildLogoutButton() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      child: ElevatedButton.icon(
+        onPressed: () async {
+          // Show confirmation dialog
+          final shouldLogout = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Konfirmasi Logout'),
+              content: const Text('Apakah Anda yakin ingin keluar?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Batal'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Ya, Keluar'),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                ),
+              ],
+            ),
+          );
+
+          if (shouldLogout == true) {
+            await _authApi.logout();
+            if (mounted) {
+              AppRoutes.navigateAndClear(context, AppRoutes.login);
+            }
+          }
+        },
+        icon: const Icon(Icons.logout),
+        label: const Text('Logout'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.red.shade600,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      ),
     );
   }
 }

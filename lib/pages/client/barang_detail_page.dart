@@ -36,11 +36,15 @@ class _BarangDetailPageState extends State<BarangDetailPage>
   void initState() {
     super.initState();
 
+    developer.log('BarangDetailPage initialized for ID: ${widget.idBarang}');
+    
+    // Jika ada initial data, gunakan dulu
     // Inisialisasi TabController
     _tabController = TabController(length: _tabs.length, vsync: this);
 
     // Gunakan initial data jika tersedia
     if (widget.initialData != null) {
+      developer.log('Using initial data for barang: ${widget.initialData!.namaBarang}');
       setState(() {
         _barang = widget.initialData;
         _setupTabs(_barang);
@@ -95,6 +99,8 @@ class _BarangDetailPageState extends State<BarangDetailPage>
     if (!mounted) return;
 
     try {
+      developer.log('Loading detail for barang ID: ${widget.idBarang}');
+      
       setState(() {
         _isLoading = _barang == null;
       });
@@ -108,6 +114,59 @@ class _BarangDetailPageState extends State<BarangDetailPage>
         throw Exception('Data barang tidak ditemukan');
       }
 
+        if (response is Map && response.containsKey('data')) {
+          // Format response dengan wrapper
+          developer.log('Response format: wrapped with data key');
+          barangDetail = BarangModel.fromJson(response['data']);
+        } else {
+          // Format response langsung
+          developer.log('Response format: direct object');
+          barangDetail = BarangModel.fromJson(response);
+        }
+
+        developer.log('Successfully parsed barang detail: ${barangDetail.namaBarang}');
+
+        // Load foto barang
+        developer.log('Loading photos for barang ID: ${widget.idBarang}');
+        final fotoResponse = await _fotoApi.getFotoByBarangId(widget.idBarang);
+        List<FotoBarangModel> fotos = [];
+
+        if (fotoResponse != null) {
+          developer.log('Received photo response: $fotoResponse');
+          if (fotoResponse is List) {
+            fotos =
+                fotoResponse
+                    .map((item) => FotoBarangModel.fromJson(item))
+                    .toList();
+          } else if (fotoResponse is Map && fotoResponse.containsKey('data')) {
+            final dataList = fotoResponse['data'] as List;
+            fotos =
+                dataList.map((item) => FotoBarangModel.fromJson(item)).toList();
+          }
+          developer.log('Parsed ${fotos.length} photos for the barang');
+        } else {
+          developer.log('No photos found for the barang');
+        }
+
+        if (mounted) {
+          setState(() {
+            _barang = barangDetail;
+            _fotoList = fotos;
+            _isLoading = false;
+          });
+          developer.log('State updated with barang data and photos');
+        }
+      } else {
+        developer.log('ERROR: API returned null response for barang ID: ${widget.idBarang}');
+        if (mounted) {
+          setState(() {
+            _errorMessage = 'Data barang tidak ditemukan';
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      developer.log('Error saat memuat detail barang: $e');
       // Konversi response ke model
       final barangDetail = BarangModel.fromJson(barangResponse);
       print('=== DEBUG: Penitipan Data ===');
@@ -425,6 +484,83 @@ class _BarangDetailPageState extends State<BarangDetailPage>
                       '#${barang.penitipanBarang!.idPenitipan}',
                     ),
 
+                    // Detail Info Section
+                    _buildDetailSection('Informasi Barang', [
+                      if (barang.kategori != null)
+                        _buildDetailRow(
+                          'Kategori',
+                          barang.kategori!.namaKategori,
+                        ),
+                      if (barang.berat != null)
+                        _buildDetailRow('Berat', '${barang.berat} gram'),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 100,
+                            child: Text(
+                              'Garansi',
+                              style: TextStyle(fontSize: 15, color: Colors.grey.shade700),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: barang.masaGaransi != null && barang.masaGaransi!.isNotEmpty
+                              ? Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.shade100,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.green.shade600),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.verified_outlined, color: Colors.green.shade700, size: 16),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            barang.masaGaransi!,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.green.shade800,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.grey.shade400),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.not_interested, color: Colors.grey.shade600, size: 16),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Tidak ada garansi',
+                                        style: TextStyle(
+                                          fontSize: 14, 
+                                          color: Colors.grey.shade800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                          ),
+                        ],
+                      ),
+                      if (barang.rating != null)
+                        _buildDetailRow('Rating', '${barang.rating}/5'),
+                    ]),
                     // Debug sebelum format tanggal
                     Builder(
                       builder: (context) {
@@ -528,6 +664,7 @@ class _BarangDetailPageState extends State<BarangDetailPage>
                     ),
                   ] else
                     Text(
+                      'Diskripsi',
                       'Data penitipan tidak tersedia',
                       style: TextStyle(
                         fontStyle: FontStyle.italic,
@@ -754,31 +891,104 @@ class _BarangDetailPageState extends State<BarangDetailPage>
     );
   }
 
-  Widget _buildImageCarousel(List<String> images) {
-    if (images.isEmpty) {
+  Widget _buildImageCarousel(List<String> imageUrls) {
+    if (imageUrls.isEmpty) {
+      // No images available
       return Container(
         height: 250,
         color: Colors.grey.shade200,
         child: Center(
-          child: Icon(
-            Icons.image_not_supported,
-            size: 64,
-            color: Colors.grey.shade400,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.image_not_supported,
+                size: 60,
+                color: Colors.grey.shade500,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tidak ada gambar',
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 16,
+                ),
+              ),
+            ],
           ),
         ),
       );
     }
 
-    return Stack(
+    // Images available, build carousel
+    return Column(
       children: [
         Container(
           height: 250,
-          color: Colors.black,
+          width: double.infinity,
           child: PageView.builder(
             controller: _pageController,
             onPageChanged: _onPageChanged,
-            itemCount: images.length,
+            itemCount: imageUrls.length,
             itemBuilder: (context, index) {
+              developer.log('Rendering image at index $index: ${imageUrls[index]}');
+              return GestureDetector(
+                onTap: () {
+                  // Implement full-screen view if needed
+                },
+                child: Image.network(
+                  imageUrls[index],
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    developer.log('Error loading image: $error');
+                    return Container(
+                      color: Colors.grey.shade200,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.broken_image,
+                              size: 40,
+                              color: Colors.red.shade300,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Gagal memuat gambar',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+
+        // Image indicators
+        if (imageUrls.length > 1)
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                imageUrls.length,
+                (index) => Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _currentImageIndex == index
+                        ? Colors.green.shade600
+                        : Colors.grey.shade300,
+                  ),
               String imageUrl = images[index];
               return CachedNetworkImage(
                 imageUrl: _apiService.getImageUrl(imageUrl),

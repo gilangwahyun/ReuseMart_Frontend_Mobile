@@ -40,13 +40,24 @@ class _LoginPageState extends State<LoginPage> {
     final userData = await _authApi.getUserData();
 
     if (userData != null) {
-      final role = userData['role'];
+      // Print the full user data to debug
+      print("User data: $userData");
 
+      final role = userData['role'];
       print("User role: $role");
 
+      // Check for role strings that might correspond to courier
+      if (role != null) {
+        if (role.toString().toLowerCase().contains('kurir') ||
+            role.toString().toLowerCase().contains('courier') ||
+            role == 'Kurir') {
+          print("Detected courier role: $role - navigating to courier home");
+        }
+      }
+
       if (mounted) {
-        // Gunakan fungsi navigateToMainFlow untuk pengelolaan navigasi
-        AppRoutes.navigateToMainFlow(context, true, role);
+        // Navigate based on role
+        AppRoutes.navigateToMainFlow(context, true, role, userData);
       }
     } else {
       if (mounted) {
@@ -77,7 +88,10 @@ class _LoginPageState extends State<LoginPage> {
         });
 
         if (response != null && response['token'] != null) {
-          // Tampilkan pesan sukses
+          // Print the login response for debugging
+          print("Login response: $response");
+
+          // Show success message
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Login berhasil!'),
@@ -85,10 +99,10 @@ class _LoginPageState extends State<LoginPage> {
             ),
           );
 
-          // Tunggu pesan sukses muncul, lalu navigasi ke halaman sesuai role
+          // Wait for success message to appear, then navigate to appropriate dashboard
           await Future.delayed(const Duration(seconds: 2));
 
-          // Navigasi ke dashboard sesuai dengan role user
+          // Navigate to dashboard based on user role
           await _navigateToCorrectDashboard();
         } else {
           setState(() {

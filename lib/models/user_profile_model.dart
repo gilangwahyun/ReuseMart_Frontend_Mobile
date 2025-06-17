@@ -1,20 +1,30 @@
 import 'user_model.dart';
 import 'pembeli_model.dart';
 import 'penitip_model.dart';
+import 'pegawai_model.dart';
 import 'dart:convert';
 
 class UserProfileModel {
   final UserModel user;
   final PembeliModel? pembeli;
   final PenitipModel? penitip;
+  final PegawaiModel? pegawai;
 
-  UserProfileModel({required this.user, this.pembeli, this.penitip});
+  UserProfileModel({
+    required this.user,
+    this.pembeli,
+    this.penitip,
+    this.pegawai,
+  });
 
   String get name {
     if (user.role == 'Pembeli' && pembeli != null) {
       return pembeli!.namaPembeli;
     } else if (user.role == 'Penitip' && penitip != null) {
       return penitip!.namaPenitip;
+    } else if ((user.role == 'Kurir' || user.role == 'Pegawai') &&
+        pegawai != null) {
+      return pegawai!.namaPegawai;
     }
     return 'User';
   }
@@ -24,6 +34,9 @@ class UserProfileModel {
       return pembeli!.noHpDefault;
     } else if (user.role == 'Penitip' && penitip != null) {
       return penitip!.noTelepon;
+    } else if ((user.role == 'Kurir' || user.role == 'Pegawai') &&
+        pegawai != null) {
+      return pegawai!.noTelepon;
     }
     return '';
   }
@@ -31,6 +44,9 @@ class UserProfileModel {
   String? get address {
     if (user.role == 'Penitip' && penitip != null) {
       return penitip!.alamat;
+    } else if ((user.role == 'Kurir' || user.role == 'Pegawai') &&
+        pegawai != null) {
+      return pegawai!.alamat;
     }
     return null;
   }
@@ -55,6 +71,7 @@ class UserProfileModel {
       UserModel user;
       PembeliModel? pembeli;
       PenitipModel? penitip;
+      PegawaiModel? pegawai;
 
       // Ekstrak user data
       if (json.containsKey('user')) {
@@ -69,8 +86,9 @@ class UserProfileModel {
         throw Exception('Format JSON tidak valid: tidak ada data user');
       }
 
-      // Ekstrak data penitip/pembeli
+      // Ekstrak data penitip/pembeli/pegawai berdasarkan role
       String role = user.role.toLowerCase();
+      print("User role terdeteksi: $role");
 
       // Coba cari data penitip
       if (role == 'penitip') {
@@ -96,7 +114,24 @@ class UserProfileModel {
         }
       }
 
-      return UserProfileModel(user: user, pembeli: pembeli, penitip: penitip);
+      // Coba cari data pegawai/kurir
+      if (role == 'kurir' || role == 'pegawai') {
+        print("Mencoba ekstrak data pegawai/kurir");
+        if (json.containsKey('pegawai') && json['pegawai'] != null) {
+          print("Data pegawai ditemukan dalam format JSON standard");
+          pegawai = PegawaiModel.fromJson(json['pegawai']);
+        } else if (json.containsKey('data') && json['data'] != null) {
+          print("Data pegawai ditemukan dalam format data wrapper");
+          pegawai = PegawaiModel.fromJson(json['data']);
+        }
+      }
+
+      return UserProfileModel(
+        user: user,
+        pembeli: pembeli,
+        penitip: penitip,
+        pegawai: pegawai,
+      );
     } catch (e) {
       print("Error parsing UserProfileModel: $e");
       print("JSON data: ${jsonEncode(json)}");
@@ -137,6 +172,10 @@ class UserProfileModel {
 
     if (penitip != null) {
       data['penitip'] = penitip!.toJson();
+    }
+
+    if (pegawai != null) {
+      data['pegawai'] = pegawai!.toJson();
     }
 
     return data;
