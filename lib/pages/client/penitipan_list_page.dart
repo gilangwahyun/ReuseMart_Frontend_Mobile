@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../api/penitipan_barang_api.dart';
+import '../../api/foto_barang_api.dart';
+import '../../api/api_service.dart';
 import '../../models/penitipan_barang_model.dart';
 import '../../models/barang_model.dart';
+import '../../models/foto_barang_model.dart';
 import '../../utils/local_storage.dart';
 
 class PenitipanListPage extends StatefulWidget {
@@ -13,7 +17,12 @@ class PenitipanListPage extends StatefulWidget {
 
 class _PenitipanListPageState extends State<PenitipanListPage> {
   final PenitipanBarangApi _penitipanBarangApi = PenitipanBarangApi();
+  final FotoBarangApi _fotoBarangApi = FotoBarangApi();
+  final ApiService _apiService = ApiService();
+
   List<PenitipanBarangModel> _penitipanList = [];
+  Map<int, FotoBarangModel?> _thumbnails =
+      {}; // Menyimpan thumbnail untuk setiap barang
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -21,6 +30,32 @@ class _PenitipanListPageState extends State<PenitipanListPage> {
   void initState() {
     super.initState();
     _loadPenitipanData();
+  }
+
+  // Fungsi untuk mengambil thumbnail foto
+  Future<void> _fetchThumbnailFoto(int idBarang) async {
+    try {
+      final fotos = await _fotoBarangApi.getFotoBarangByIdBarang(idBarang);
+
+      if (fotos.isNotEmpty) {
+        // Pilih foto dengan is_thumbnail === true
+        final thumbnail = fotos.firstWhere(
+          (f) => f.isThumbnail,
+          orElse: () {
+            // Fallback ke foto pertama (id_foto_barang terkecil)
+            final sortedFotos = List.from(fotos)
+              ..sort((a, b) => a.idFotoBarang.compareTo(b.idFotoBarang));
+            return sortedFotos.first;
+          },
+        );
+
+        setState(() {
+          _thumbnails[idBarang] = thumbnail;
+        });
+      }
+    } catch (e) {
+      print('Error fetching foto barang: $e');
+    }
   }
 
   Future<void> _loadPenitipanData() async {
@@ -40,7 +75,7 @@ class _PenitipanListPageState extends State<PenitipanListPage> {
         return;
       }
 
-      final response = await _penitipanBarangApi.getPenitipanBarangByIdPenitip(
+      final response = await _penitipanBarangApi.getPenitipanByPenitipId(
         idPenitip,
       );
 
@@ -56,31 +91,52 @@ class _PenitipanListPageState extends State<PenitipanListPage> {
                 .toList();
 
         // Urutkan berdasarkan tanggal penitipan terbaru
-        penitipanList.sort(
-          (a, b) => b.tanggalAwalPenitipan.compareTo(a.tanggalAwalPenitipan),
-        );
+        penitipanList.sort((a, b) {
+          final dateA = a.tanggalAwalPenitipan ?? '';
+          final dateB = b.tanggalAwalPenitipan ?? '';
+          return dateB.compareTo(dateA);
+        });
 
         setState(() {
           _penitipanList = penitipanList;
           _isLoading = false;
         });
+
+        // Fetch thumbnails untuk setiap barang dalam penitipan
+        for (var penitipan in penitipanList) {
+          if (penitipan.barang != null) {
+            for (var barang in penitipan.barang!) {
+              await _fetchThumbnailFoto(barang.idBarang);
+            }
+          }
+        }
       } else if (response is List) {
         // Format response langsung list
-
         final penitipanList =
             response
                 .map((item) => PenitipanBarangModel.fromJson(item))
                 .toList();
 
         // Urutkan berdasarkan tanggal penitipan terbaru
-        penitipanList.sort(
-          (a, b) => b.tanggalAwalPenitipan.compareTo(a.tanggalAwalPenitipan),
-        );
+        penitipanList.sort((a, b) {
+          final dateA = a.tanggalAwalPenitipan ?? '';
+          final dateB = b.tanggalAwalPenitipan ?? '';
+          return dateB.compareTo(dateA);
+        });
 
         setState(() {
           _penitipanList = penitipanList;
           _isLoading = false;
         });
+
+        // Fetch thumbnails untuk setiap barang dalam penitipan
+        for (var penitipan in penitipanList) {
+          if (penitipan.barang != null) {
+            for (var barang in penitipan.barang!) {
+              await _fetchThumbnailFoto(barang.idBarang);
+            }
+          }
+        }
       } else {
         setState(() {
           _penitipanList = [];
@@ -183,9 +239,9 @@ class _PenitipanListPageState extends State<PenitipanListPage> {
   }
 
   Widget _buildPenitipanCard(PenitipanBarangModel penitipan) {
-    // Format tanggal
-    String tglAwal = _formatDate(penitipan.tanggalAwalPenitipan);
-    String tglAkhir = _formatDate(penitipan.tanggalAkhirPenitipan);
+    // Format tanggal dengan penanganan null
+    String tglAwal = _formatDate(penitipan.tanggalAwalPenitipan ?? '-');
+    String tglAkhir = _formatDate(penitipan.tanggalAkhirPenitipan ?? '-');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 20),
@@ -266,7 +322,7 @@ class _PenitipanListPageState extends State<PenitipanListPage> {
                     Icon(Icons.person, size: 16, color: Colors.grey.shade700),
                     const SizedBox(width: 8),
                     Text(
-                      'Petugas QC: ${penitipan.namaPetugasQc}',
+                      'Petugas QC: ${penitipan.namaPetugasQc ?? "-"}',
                       style: TextStyle(color: Colors.grey.shade700),
                     ),
                   ],
@@ -313,6 +369,8 @@ class _PenitipanListPageState extends State<PenitipanListPage> {
   }
 
   Widget _buildBarangItem(BarangModel barang) {
+    final thumbnail = _thumbnails[barang.idBarang];
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -327,14 +385,29 @@ class _PenitipanListPageState extends State<PenitipanListPage> {
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child:
-                barang.gambarUtama.isNotEmpty
-                    ? Image.network(
-                      barang.gambarUtama,
+                thumbnail != null
+                    ? CachedNetworkImage(
+                      imageUrl: _apiService.getImageUrl(thumbnail.urlFoto),
                       width: 60,
                       height: 60,
                       fit: BoxFit.cover,
-                      errorBuilder:
-                          (_, __, ___) => Container(
+                      maxHeightDiskCache: 200,
+                      memCacheHeight: 200,
+                      useOldImageOnUrlChange: true,
+                      placeholder:
+                          (context, url) => Container(
+                            width: 60,
+                            height: 60,
+                            color: Colors.grey.shade200,
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.green.shade600,
+                              ),
+                            ),
+                          ),
+                      errorWidget:
+                          (context, url, error) => Container(
                             width: 60,
                             height: 60,
                             color: Colors.grey.shade200,
@@ -477,6 +550,8 @@ class _PenitipanListPageState extends State<PenitipanListPage> {
   }
 
   String _formatDate(String isoDate) {
+    if (isoDate == '-') return '-';
+
     try {
       final date = DateTime.parse(isoDate);
       final day = date.day.toString().padLeft(2, '0');
@@ -484,7 +559,10 @@ class _PenitipanListPageState extends State<PenitipanListPage> {
       final year = date.year.toString();
       return '$day/$month/$year';
     } catch (e) {
-      return isoDate.substring(0, 10);
+      if (isoDate.length >= 10) {
+        return isoDate.substring(0, 10);
+      }
+      return isoDate;
     }
   }
 }

@@ -3,7 +3,7 @@ import 'dart:convert';
 
 class PenitipApi {
   final ApiService _apiService = ApiService();
-  final String apiUrl = '/penitip';
+  final String apiUrl = 'penitip';
 
   Future<dynamic> createPenitip(Map<String, dynamic> userData) async {
     try {

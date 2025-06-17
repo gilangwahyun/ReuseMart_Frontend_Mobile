@@ -95,6 +95,10 @@ class UserApi {
             pembeli = PembeliModel.fromJson(
               response['data'] as Map<String, dynamic>,
             );
+
+            // Simpan ID pembeli ke local storage
+            await LocalStorage.savePembeliId(pembeli.idPembeli);
+            print("ID pembeli disimpan: ${pembeli.idPembeli}");
           } else {
             print(
               "Format respons valid tapi success:false atau data tidak ada",
@@ -108,6 +112,10 @@ class UserApi {
           );
 
           pembeli = PembeliModel.fromJson(response as Map<String, dynamic>);
+
+          // Simpan ID pembeli ke local storage
+          await LocalStorage.savePembeliId(pembeli.idPembeli);
+          print("ID pembeli disimpan: ${pembeli.idPembeli}");
         }
 
         // Buat dan simpan profil lengkap

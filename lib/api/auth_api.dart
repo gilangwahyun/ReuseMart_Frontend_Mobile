@@ -32,6 +32,14 @@ class AuthApi {
           // Simpan juga data sebagai Map untuk akses mudah
           await LocalStorage.saveUserMap(userData);
 
+          // Jika ada id_pembeli, simpan secara terpisah
+          if (userData['id_pembeli'] != null) {
+            await LocalStorage.savePembeliId(
+              int.parse(userData['id_pembeli'].toString()),
+            );
+            print('ID pembeli berhasil disimpan: ${userData['id_pembeli']}');
+          }
+
           // Log berhasil menyimpan data
           print('Token dan data user berhasil disimpan');
 
