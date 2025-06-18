@@ -433,6 +433,7 @@ packages:
     source: hosted
     version: "2.1.8"
   rxdart:
+    dependency: "direct main"
     dependency: transitive
     description:
       name: rxdart

@@ -123,6 +123,64 @@ class _KurirHomePageState extends State<KurirHomePage> {
     }
   }
 
+  void _onNavBarTapped(int index) {
+    if (_selectedNavIndex == index) return;
+
+    setState(() {
+      _selectedNavIndex = index;
+    });
+
+    switch (index) {
+      case 0:
+        // Already on home page
+        break;
+      case 1:
+        // Navigate to profile page
+        AppRoutes.navigateAndReplace(context, AppRoutes.kurirProfile);
+        break;
+    }
+  }
+
+  Future<void> _updateJadwalStatus(JadwalModel jadwal, String newStatus) async {
+    try {
+      await _jadwalApi.updateJadwalStatus(jadwal.idJadwal, {
+        'id_transaksi': jadwal.idTransaksi,
+        'id_pegawai': jadwal.idPegawai,
+        'tanggal': jadwal.tanggal,
+        'status_jadwal': newStatus,
+      });
+
+      // Refresh the data
+      if (_pegawaiProfile != null) {
+        await _loadJadwalData(_pegawaiProfile!.idPegawai);
+      }
+
+      // Show success message
+      String successMessage = '';
+      if (newStatus == 'Selesai') {
+        successMessage =
+            'Pengiriman berhasil diselesaikan! Notifikasi telah dikirim ke pembeli dan penitip.';
+      } else {
+        successMessage = 'Status updated to $newStatus';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(successMessage),
+          backgroundColor: Colors.green.shade700,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update status: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -330,6 +388,10 @@ class _KurirHomePageState extends State<KurirHomePage> {
         statusColor = Colors.green;
         statusIcon = Icons.done_all;
         break;
+      case 'Selesai':
+        statusColor = Colors.green.shade800;
+        statusIcon = Icons.verified;
+        break;
       default:
         statusColor = Colors.grey;
         statusIcon = Icons.info;
@@ -427,12 +489,11 @@ class _KurirHomePageState extends State<KurirHomePage> {
 
   Widget _buildStatusUpdateButtons(JadwalModel jadwal) {
     // Only show buttons if the status can be updated
-    if (jadwal.statusJadwal == 'Sudah Sampai' ||
-        jadwal.statusJadwal == 'Sudah Diambil') {
+    if (jadwal.statusJadwal == 'Selesai') {
       return const SizedBox.shrink(); // No buttons for completed deliveries
     }
 
-    // For pickup orders
+    // For pickup orders that are pending
     if (jadwal.statusJadwal == 'Menunggu Diambil') {
       return ElevatedButton.icon(
         onPressed: () => _updateJadwalStatus(jadwal, 'Sudah Diambil'),
@@ -446,14 +507,43 @@ class _KurirHomePageState extends State<KurirHomePage> {
       );
     }
 
-    // For delivery orders
+    // For delivery orders in progress (with courier)
+    if (jadwal.statusJadwal == 'Sedang di Kurir') {
+      return ElevatedButton.icon(
+        onPressed: () => _updateJadwalStatus(jadwal, 'Sudah Sampai'),
+        icon: const Icon(Icons.local_shipping),
+        label: const Text('Mark as Arrived'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue.shade600,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(double.infinity, 44),
+        ),
+      );
+    }
+
+    // For delivery orders in progress
     if (jadwal.statusJadwal == 'Sedang Dikirim') {
       return ElevatedButton.icon(
         onPressed: () => _updateJadwalStatus(jadwal, 'Sudah Sampai'),
-        icon: const Icon(Icons.done_all),
-        label: const Text('Mark as Delivered'),
+        icon: const Icon(Icons.local_shipping),
+        label: const Text('Mark as Arrived'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green.shade600,
+          backgroundColor: Colors.blue.shade600,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(double.infinity, 44),
+        ),
+      );
+    }
+
+    // For orders that have been picked up or delivered but not yet marked as completed
+    if (jadwal.statusJadwal == 'Sudah Diambil' ||
+        jadwal.statusJadwal == 'Sudah Sampai') {
+      return ElevatedButton.icon(
+        onPressed: () => _updateJadwalStatus(jadwal, 'Selesai'),
+        icon: const Icon(Icons.verified),
+        label: const Text('Complete Delivery'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green.shade800,
           foregroundColor: Colors.white,
           minimumSize: const Size(double.infinity, 44),
         ),
