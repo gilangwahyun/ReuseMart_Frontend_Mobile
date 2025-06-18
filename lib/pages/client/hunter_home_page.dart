@@ -1,34 +1,31 @@
 import 'package:flutter/material.dart';
 import '../../api/auth_api.dart';
-import '../../api/jadwal_api.dart';
 import '../../api/pegawai_api.dart';
-import '../../api/user_api.dart';
-import '../../models/jadwal_model.dart';
+import '../../api/komisi_pegawai_api.dart';
+import '../../models/komisi_pegawai_model.dart';
 import '../../models/pegawai_model.dart';
 import '../../models/user_profile_model.dart';
 import '../../routes/app_routes.dart';
 import '../../utils/local_storage.dart';
-import '../../widgets/notification_icon.dart';
 
-class KurirHomePage extends StatefulWidget {
-  const KurirHomePage({super.key});
+class HunterHomePage extends StatefulWidget {
+  const HunterHomePage({super.key});
 
   @override
-  State<KurirHomePage> createState() => _KurirHomePageState();
+  State<HunterHomePage> createState() => _HunterHomePageState();
 }
 
-class _KurirHomePageState extends State<KurirHomePage> {
-  final UserApi _userApi = UserApi();
+class _HunterHomePageState extends State<HunterHomePage> {
   final AuthApi _authApi = AuthApi();
   final PegawaiApi _pegawaiApi = PegawaiApi();
-  final JadwalApi _jadwalApi = JadwalApi();
+  final KomisiPegawaiApi _komisiPegawaiApi = KomisiPegawaiApi();
 
   UserProfileModel? _userProfile;
   PegawaiModel? _pegawaiProfile;
-  List<JadwalModel> _jadwalList = [];
+  List<KomisiPegawaiModel> _komisiList = [];
+  double _totalKomisi = 0;
   bool _isLoading = true;
   String? _errorMessage;
-  int _selectedNavIndex = 0; // 0 for home
 
   @override
   void initState() {
@@ -87,8 +84,8 @@ class _KurirHomePageState extends State<KurirHomePage> {
         _userProfile = profile;
       });
 
-      // Load jadwal for this courier
-      await _loadJadwalData(pegawai.idPegawai);
+      // Load komisi for this hunter
+      await _loadKomisiData(pegawai.idPegawai);
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to load data: $e';
@@ -97,87 +94,24 @@ class _KurirHomePageState extends State<KurirHomePage> {
     }
   }
 
-  Future<void> _loadJadwalData(int pegawaiId) async {
+  Future<void> _loadKomisiData(int pegawaiId) async {
     try {
-      final jadwalData = await _jadwalApi.getJadwalByPegawai(pegawaiId);
+      // Get komisi data
+      final komisiList = await _komisiPegawaiApi.getKomisiByPegawai(pegawaiId);
+      
+      // Calculate total komisi
+      final totalKomisi = await _komisiPegawaiApi.getTotalKomisiPegawai(pegawaiId);
 
-      if (jadwalData is List) {
-        final jadwals =
-            jadwalData.map((item) => JadwalModel.fromJson(item)).toList();
-
-        setState(() {
-          _jadwalList = jadwals;
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _jadwalList = [];
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to load schedules: $e';
+        _komisiList = komisiList;
+        _totalKomisi = totalKomisi;
         _isLoading = false;
       });
-    }
-  }
-
-  void _onNavBarTapped(int index) {
-    if (_selectedNavIndex == index) return;
-
-    setState(() {
-      _selectedNavIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        // Already on home page
-        break;
-      case 1:
-        // Navigate to profile page
-        AppRoutes.navigateAndReplace(context, AppRoutes.kurirProfile);
-        break;
-    }
-  }
-
-  Future<void> _updateJadwalStatus(JadwalModel jadwal, String newStatus) async {
-    try {
-      await _jadwalApi.updateJadwalStatus(jadwal.idJadwal, {
-        'id_transaksi': jadwal.idTransaksi,
-        'id_pegawai': jadwal.idPegawai,
-        'tanggal': jadwal.tanggal,
-        'status_jadwal': newStatus,
-      });
-
-      // Refresh the data
-      if (_pegawaiProfile != null) {
-        await _loadJadwalData(_pegawaiProfile!.idPegawai);
-      }
-
-      // Show success message
-      String successMessage = '';
-      if (newStatus == 'Selesai') {
-        successMessage =
-            'Pengiriman berhasil diselesaikan! Notifikasi telah dikirim ke pembeli dan penitip.';
-      } else {
-        successMessage = 'Status updated to $newStatus';
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(successMessage),
-          backgroundColor: Colors.green.shade700,
-          duration: const Duration(seconds: 3),
-        ),
-      );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to update status: $e'),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
+      setState(() {
+        _errorMessage = 'Failed to load commission data: $e';
+        _isLoading = false;
+      });
     }
   }
 
@@ -222,7 +156,7 @@ class _KurirHomePageState extends State<KurirHomePage> {
         physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [_buildWelcomeBanner(), _buildDeliveryScheduleSection()],
+          children: [_buildWelcomeBanner(), _buildKomisiDetailsSection()],
         ),
       ),
     );
@@ -251,7 +185,7 @@ class _KurirHomePageState extends State<KurirHomePage> {
           ),
           const SizedBox(height: 4),
           Text(
-            _pegawaiProfile?.namaPegawai ?? 'Courier',
+            _pegawaiProfile?.namaPegawai ?? 'Hunter',
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
@@ -260,7 +194,7 @@ class _KurirHomePageState extends State<KurirHomePage> {
               Expanded(
                 child: _buildInfoCard(
                   title: 'Job Title',
-                  value: _pegawaiProfile?.jabatan?['nama_jabatan'] ?? 'Courier',
+                  value: _pegawaiProfile?.jabatan?['nama_jabatan'] ?? 'Hunter',
                   icon: Icons.work,
                   color: Colors.blue,
                 ),
@@ -268,9 +202,9 @@ class _KurirHomePageState extends State<KurirHomePage> {
               const SizedBox(width: 16),
               Expanded(
                 child: _buildInfoCard(
-                  title: 'Total Deliveries',
-                  value: '${_jadwalList.length}',
-                  icon: Icons.local_shipping,
+                  title: 'Jumlah Komisi',
+                  value: 'Rp ${_formatRupiah(_totalKomisi)}',
+                  icon: Icons.monetization_on,
                   color: Colors.amber,
                 ),
               ),
@@ -321,23 +255,23 @@ class _KurirHomePageState extends State<KurirHomePage> {
     );
   }
 
-  Widget _buildDeliveryScheduleSection() {
+  Widget _buildKomisiDetailsSection() {
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Delivery Schedules',
+            'Detail Komisi',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          _jadwalList.isEmpty
-              ? _buildEmptyScheduleState()
+          _komisiList.isEmpty
+              ? _buildEmptyKomisiState()
               : Column(
                 children:
-                    _jadwalList
-                        .map((jadwal) => _buildJadwalItem(jadwal))
+                    _komisiList
+                        .map((komisi) => _buildKomisiItem(komisi))
                         .toList(),
               ),
         ],
@@ -345,20 +279,20 @@ class _KurirHomePageState extends State<KurirHomePage> {
     );
   }
 
-  Widget _buildEmptyScheduleState() {
+  Widget _buildEmptyKomisiState() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 30),
       alignment: Alignment.center,
       child: Column(
         children: [
           Icon(
-            Icons.calendar_today_outlined,
+            Icons.account_balance_wallet_outlined,
             size: 64,
             color: Colors.grey.shade400,
           ),
           const SizedBox(height: 16),
           Text(
-            'No delivery schedules found',
+            'Belum ada komisi',
             style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
           ),
         ],
@@ -366,40 +300,7 @@ class _KurirHomePageState extends State<KurirHomePage> {
     );
   }
 
-  Widget _buildJadwalItem(JadwalModel jadwal) {
-    // Define colors based on status
-    Color statusColor;
-    IconData statusIcon;
-
-    switch (jadwal.statusJadwal) {
-      case 'Menunggu Diambil':
-        statusColor = Colors.orange;
-        statusIcon = Icons.hourglass_empty;
-        break;
-      case 'Sedang Dikirim':
-        statusColor = Colors.blue;
-        statusIcon = Icons.local_shipping;
-        break;
-      case 'Sudah Diambil':
-        statusColor = Colors.green;
-        statusIcon = Icons.check_circle;
-        break;
-      case 'Sudah Sampai':
-        statusColor = Colors.green;
-        statusIcon = Icons.done_all;
-        break;
-      case 'Selesai':
-        statusColor = Colors.green.shade800;
-        statusIcon = Icons.verified;
-        break;
-      default:
-        statusColor = Colors.grey;
-        statusIcon = Icons.info;
-    }
-
-    // Format date
-    final formattedDate = _formatDate(jadwal.tanggal);
-
+  Widget _buildKomisiItem(KomisiPegawaiModel komisi) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
@@ -411,11 +312,11 @@ class _KurirHomePageState extends State<KurirHomePage> {
           children: [
             Row(
               children: [
-                Icon(statusIcon, color: statusColor),
+                Icon(Icons.receipt, color: Colors.green.shade700),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Order #${jadwal.idTransaksi}',
+                    'Transaksi #${komisi.idTransaksi}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -428,14 +329,14 @@ class _KurirHomePageState extends State<KurirHomePage> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: Colors.green.shade100,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: statusColor),
+                    border: Border.all(color: Colors.green.shade400),
                   ),
                   child: Text(
-                    jadwal.statusJadwal,
+                    'Rp ${_formatRupiah(komisi.jumlahKomisi)}',
                     style: TextStyle(
-                      color: statusColor,
+                      color: Colors.green.shade800,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
@@ -444,22 +345,25 @@ class _KurirHomePageState extends State<KurirHomePage> {
               ],
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(
-                  Icons.calendar_today,
-                  size: 16,
-                  color: Colors.grey.shade600,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Scheduled: $formattedDate',
-                  style: TextStyle(color: Colors.grey.shade700),
-                ),
-              ],
-            ),
+            if (komisi.transaksi != null && komisi.transaksi!.containsKey('tanggal_transaksi'))
+              Row(
+                children: [
+                  Icon(
+                    Icons.calendar_today,
+                    size: 16,
+                    color: Colors.grey.shade600,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Tanggal: ${_formatDate(komisi.transaksi!['tanggal_transaksi'])}',
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
+                ],
+              ),
             const SizedBox(height: 8),
-            if (jadwal.transaksi != null && jadwal.transaksi!['alamat'] != null)
+            if (komisi.transaksi != null && 
+                komisi.transaksi!.containsKey('alamat') && 
+                komisi.transaksi!['alamat'] != null)
               Row(
                 children: [
                   Icon(
@@ -470,8 +374,8 @@ class _KurirHomePageState extends State<KurirHomePage> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      jadwal.transaksi!['alamat']['alamat_lengkap'] ??
-                          'No address',
+                      komisi.transaksi!['alamat']['alamat_lengkap'] ??
+                          'Tidak ada alamat',
                       style: TextStyle(color: Colors.grey.shade700),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -479,78 +383,27 @@ class _KurirHomePageState extends State<KurirHomePage> {
                   ),
                 ],
               ),
-            const SizedBox(height: 16),
-            _buildStatusUpdateButtons(jadwal),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatusUpdateButtons(JadwalModel jadwal) {
-    // Only show buttons if the status can be updated
-    if (jadwal.statusJadwal == 'Selesai') {
-      return const SizedBox.shrink(); // No buttons for completed deliveries
+  String _formatRupiah(double price) {
+    int priceInt = price.toInt();
+    String priceStr = priceInt.toString();
+    String result = '';
+    int count = 0;
+
+    for (int i = priceStr.length - 1; i >= 0; i--) {
+      result = priceStr[i] + result;
+      count++;
+      if (count % 3 == 0 && i != 0) {
+        result = '.$result';
+      }
     }
 
-    // For pickup orders that are pending
-    if (jadwal.statusJadwal == 'Menunggu Diambil') {
-      return ElevatedButton.icon(
-        onPressed: () => _updateJadwalStatus(jadwal, 'Sudah Diambil'),
-        icon: const Icon(Icons.check_circle),
-        label: const Text('Mark as Picked Up'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green.shade600,
-          foregroundColor: Colors.white,
-          minimumSize: const Size(double.infinity, 44),
-        ),
-      );
-    }
-
-    // For delivery orders in progress (with courier)
-    if (jadwal.statusJadwal == 'Sedang di Kurir') {
-      return ElevatedButton.icon(
-        onPressed: () => _updateJadwalStatus(jadwal, 'Sudah Sampai'),
-        icon: const Icon(Icons.local_shipping),
-        label: const Text('Mark as Arrived'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue.shade600,
-          foregroundColor: Colors.white,
-          minimumSize: const Size(double.infinity, 44),
-        ),
-      );
-    }
-
-    // For delivery orders in progress
-    if (jadwal.statusJadwal == 'Sedang Dikirim') {
-      return ElevatedButton.icon(
-        onPressed: () => _updateJadwalStatus(jadwal, 'Sudah Sampai'),
-        icon: const Icon(Icons.local_shipping),
-        label: const Text('Mark as Arrived'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue.shade600,
-          foregroundColor: Colors.white,
-          minimumSize: const Size(double.infinity, 44),
-        ),
-      );
-    }
-
-    // For orders that have been picked up or delivered but not yet marked as completed
-    if (jadwal.statusJadwal == 'Sudah Diambil' ||
-        jadwal.statusJadwal == 'Sudah Sampai') {
-      return ElevatedButton.icon(
-        onPressed: () => _updateJadwalStatus(jadwal, 'Selesai'),
-        icon: const Icon(Icons.verified),
-        label: const Text('Complete Delivery'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green.shade800,
-          foregroundColor: Colors.white,
-          minimumSize: const Size(double.infinity, 44),
-        ),
-      );
-    }
-
-    return const SizedBox.shrink(); // Default empty widget
+    return result;
   }
 
   String _formatDate(String isoDate) {
@@ -562,37 +415,6 @@ class _KurirHomePageState extends State<KurirHomePage> {
       return '$day/$month/$year';
     } catch (e) {
       return isoDate.substring(0, 10);
-    }
-  }
-
-  Future<void> _updateJadwalStatus(JadwalModel jadwal, String newStatus) async {
-    try {
-      await _jadwalApi.updateJadwalStatus(jadwal.idJadwal, {
-        'id_transaksi': jadwal.idTransaksi,
-        'id_pegawai': jadwal.idPegawai,
-        'tanggal': jadwal.tanggal,
-        'status_jadwal': newStatus,
-      });
-
-      // Refresh the data
-      if (_pegawaiProfile != null) {
-        await _loadJadwalData(_pegawaiProfile!.idPegawai);
-      }
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Status updated to $newStatus'),
-          backgroundColor: Colors.green.shade700,
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to update status: $e'),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
     }
   }
 }

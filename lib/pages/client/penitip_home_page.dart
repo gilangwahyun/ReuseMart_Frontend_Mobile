@@ -1,22 +1,29 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../api/auth_api.dart';
 import '../../api/barang_api.dart';
 import '../../api/user_api.dart';
 import '../../api/penitip_api.dart';
 import '../../api/penitipan_barang_api.dart';
+import '../../api/api_service.dart';
+import '../../api/foto_barang_api.dart';
 import '../../models/barang_model.dart';
 import '../../models/user_profile_model.dart';
 import '../../models/penitip_model.dart';
 import '../../models/penitipan_barang_model.dart';
+import '../../models/foto_barang_model.dart';
 import '../../routes/app_routes.dart';
 import '../../utils/local_storage.dart';
 import '../../widgets/notification_icon.dart';
 import 'barang_penitip_page.dart';
 import 'penitipan_list_page.dart';
+import 'barang_detail_page.dart';
 
 class PenitipHomePage extends StatefulWidget {
-  const PenitipHomePage({super.key});
+  final bool isEmbedded;
+
+  const PenitipHomePage({super.key, this.isEmbedded = true});
 
   @override
   State<PenitipHomePage> createState() => _PenitipHomePageState();
@@ -28,9 +35,13 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
   final PenitipApi _penitipApi = PenitipApi();
   final BarangApi _barangApi = BarangApi();
   final PenitipanBarangApi _penitipanBarangApi = PenitipanBarangApi();
+  final ApiService _apiService = ApiService();
+  final FotoBarangApi _fotoBarangApi = FotoBarangApi();
 
   UserProfileModel? _userProfile;
   List<BarangModel> _recentBarang = [];
+  Map<int, FotoBarangModel?> _thumbnails =
+      {}; // Menyimpan thumbnail untuk setiap barang
   bool _isLoading = true;
   String? _errorMessage;
   int _selectedNavIndex = 0; // 0 untuk home penitip
@@ -58,22 +69,54 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
         return;
       }
 
-      // Ambil data profil
+      // Ambil data profil dari local storage terlebih dahulu
       final profile = await LocalStorage.getProfile();
-      if (profile == null || profile.penitip == null) {
+
+      // Jika data profil tersedia, gunakan data tersebut
+      if (profile != null) {
         setState(() {
-          _errorMessage = 'Profil penitip tidak ditemukan';
-          _isLoading = false;
+          _userProfile = profile;
         });
-        return;
+
+        // Jika data penitip tersedia, langsung load data barang
+        if (profile.penitip != null) {
+          await _loadRecentBarang();
+          return;
+        }
       }
 
-      setState(() {
-        _userProfile = profile;
-      });
+      // Jika tidak ada data di local storage atau tidak ada data penitip, ambil dari API
+      try {
+        final apiProfile = await _userApi.getProfile();
 
-      // Setelah mendapatkan profil, ambil data barang terbaru untuk dashboard
-      await _loadRecentBarang();
+        if (apiProfile != null) {
+          setState(() {
+            _userProfile = apiProfile;
+          });
+
+          // Simpan ke local storage
+          await LocalStorage.saveProfile(apiProfile);
+
+          if (apiProfile.penitip != null) {
+            await LocalStorage.savePenitipId(
+              apiProfile.penitip!.idPenitip.toString(),
+            );
+          }
+
+          // Load data barang
+          await _loadRecentBarang();
+        } else {
+          setState(() {
+            _errorMessage = 'Gagal memuat profil';
+            _isLoading = false;
+          });
+        }
+      } catch (e) {
+        setState(() {
+          _errorMessage = 'Error: $e';
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       setState(() {
         _errorMessage = 'Gagal memuat data: $e';
@@ -89,31 +132,29 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
       // Cara 1: Gunakan ID penitip dari profil
       if (_userProfile?.penitip != null) {
         idPenitip = _userProfile!.penitip!.idPenitip;
-        print("Menggunakan ID penitip dari profil: $idPenitip");
       } else {
         // Cara 2: Coba ambil ID penitip yang tersimpan di localStorage
         idPenitip = await LocalStorage.getPenitipId();
-        if (idPenitip != null) {
-          print("Menggunakan ID penitip dari storage: $idPenitip");
-        } else {
+        if (idPenitip == null) {
           // Cara 3: Coba ambil dari string
           final idPenitipStr = await LocalStorage.getData('id_penitip');
           if (idPenitipStr != null && idPenitipStr.isNotEmpty) {
             idPenitip = int.tryParse(idPenitipStr);
-            print("Menggunakan ID penitip dari storage (string): $idPenitip");
-          } else {
-            print("Tidak menemukan ID penitip yang valid");
-            setState(() {
-              _recentBarang = [];
-              _isLoading = false;
-            });
-            return;
           }
         }
       }
 
+      // Jika tidak ada ID penitip yang valid
+      if (idPenitip == null) {
+        setState(() {
+          _recentBarang = [];
+          _isLoading = false;
+        });
+        return;
+      }
+
       // Ambil data barang dari API
-      final response = await _barangApi.getBarangByPenitip(idPenitip!);
+      final response = await _barangApi.getBarangByPenitip(idPenitip);
 
       if (response is List) {
         final barangList =
@@ -126,19 +167,50 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
           _recentBarang = recentBarang;
           _isLoading = false;
         });
+
+        // Fetch thumbnails untuk setiap barang
+        for (var barang in recentBarang) {
+          await _fetchThumbnailFoto(barang.idBarang);
+        }
       } else {
-        print("API mengembalikan format yang tidak dikenali: $response");
         setState(() {
           _recentBarang = [];
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       print("Error saat memuat data barang: $e");
+      print("Stack trace: $stackTrace");
       setState(() {
         _errorMessage = 'Gagal memuat data: $e';
         _isLoading = false;
       });
+    }
+  }
+
+  // Fungsi untuk mengambil thumbnail foto
+  Future<void> _fetchThumbnailFoto(int idBarang) async {
+    try {
+      final fotos = await _fotoBarangApi.getFotoBarangByIdBarang(idBarang);
+
+      if (fotos.isNotEmpty) {
+        // Pilih foto dengan is_thumbnail === true
+        final thumbnail = fotos.firstWhere(
+          (f) => f.isThumbnail,
+          orElse: () {
+            // Fallback ke foto pertama (id_foto_barang terkecil)
+            final sortedFotos = List.from(fotos)
+              ..sort((a, b) => a.idFotoBarang.compareTo(b.idFotoBarang));
+            return sortedFotos.first;
+          },
+        );
+
+        setState(() {
+          _thumbnails[idBarang] = thumbnail;
+        });
+      }
+    } catch (e) {
+      print('Error fetching foto barang: $e');
     }
   }
 
@@ -149,12 +221,15 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
       _selectedNavIndex = index;
     });
 
+    // Jika halaman ini disematkan dalam container, tidak perlu navigasi antar tab
+    if (widget.isEmbedded) return;
+
+    // Hanya navigasi jika tidak disematkan dalam container
     switch (index) {
       case 0:
         // Sudah di halaman home
         break;
       case 1:
-        // Navigasi ke halaman profil
         AppRoutes.navigateAndReplace(context, AppRoutes.penitipProfile);
         break;
     }
@@ -179,80 +254,78 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('ReuseMart'),
-          backgroundColor: Colors.green.shade600,
-        ),
-        body: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade600),
-          ),
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade600),
         ),
       );
     }
 
     if (_errorMessage != null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('ReuseMart'),
-          backgroundColor: Colors.green.shade600,
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
-              const SizedBox(height: 16),
-              Text(
-                _errorMessage!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => _loadUserData(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade600,
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => _loadUserData(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade600,
-                ),
-                child: const Text('Coba Lagi'),
-              ),
-            ],
-          ),
+              child: const Text('Coba Lagi'),
+            ),
+          ],
         ),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('ReuseMart'),
-        backgroundColor: Colors.green.shade600,
-        actions: [
-          NotificationIcon(color: Colors.white, badgeColor: Colors.amber),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadUserData,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildWelcomeBanner(),
-              _buildMenuButtons(),
-              _buildRecentBarangSection(),
-            ],
-          ),
+    // Jika halaman ini tidak disematkan (standalone), gunakan Scaffold dengan AppBar
+    if (!widget.isEmbedded) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('ReuseMart Penitip'),
+          backgroundColor: Colors.green.shade600,
+          actions: [
+            NotificationIcon(color: Colors.white, badgeColor: Colors.amber),
+          ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedNavIndex,
-        onTap: _onNavBarTapped,
-        selectedItemColor: Colors.green.shade700,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Beranda'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
-        ],
+        body: _buildHomeContent(),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _selectedNavIndex,
+          onTap: _onNavBarTapped,
+          selectedItemColor: Colors.green.shade700,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          ],
+        ),
+      );
+    }
+
+    // Jika halaman ini disematkan (embedded), hanya tampilkan konten tanpa Scaffold
+    return _buildHomeContent();
+  }
+
+  Widget _buildHomeContent() {
+    return RefreshIndicator(
+      onRefresh: _loadUserData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildWelcomeBanner(),
+            _buildActionsGrid(),
+            _buildRecentBarang(),
+          ],
+        ),
       ),
     );
   }
@@ -351,7 +424,7 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
     );
   }
 
-  Widget _buildMenuButtons() {
+  Widget _buildActionsGrid() {
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -437,7 +510,7 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
     );
   }
 
-  Widget _buildRecentBarangSection() {
+  Widget _buildRecentBarang() {
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -499,6 +572,17 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
   }
 
   Widget _buildBarangItem(BarangModel barang) {
+    print('\n=== DEBUG: _buildBarangItem ===');
+    print('ID Barang: ${barang.idBarang}');
+    print('Nama Barang: ${barang.namaBarang}');
+
+    final thumbnail = _thumbnails[barang.idBarang];
+    if (thumbnail != null) {
+      print('Thumbnail ditemukan: ${thumbnail.urlFoto}');
+    } else {
+      print('Tidak ada thumbnail untuk barang ini');
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -507,13 +591,32 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child:
-              barang.gambarUtama.isNotEmpty
-                  ? Image.network(
-                    barang.gambarUtama,
+              thumbnail != null
+                  ? CachedNetworkImage(
+                    imageUrl: _apiService.getImageUrl(thumbnail.urlFoto),
                     width: 56,
                     height: 56,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _buildNoImage(),
+                    maxHeightDiskCache: 200,
+                    memCacheHeight: 200,
+                    useOldImageOnUrlChange: true,
+                    placeholder:
+                        (context, url) => Container(
+                          width: 56,
+                          height: 56,
+                          color: Colors.grey.shade200,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.green.shade600,
+                            ),
+                          ),
+                        ),
+                    errorWidget: (context, url, error) {
+                      print('Error loading image: $error');
+                      print('Failed URL: $url');
+                      return _buildNoImage();
+                    },
                   )
                   : _buildNoImage(),
         ),
@@ -549,7 +652,16 @@ class _PenitipHomePageState extends State<PenitipHomePage> {
         ),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {
-          // Navigasi ke detail barang
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (context) => BarangDetailPage(
+                    idBarang: barang.idBarang,
+                    initialData: barang,
+                  ),
+            ),
+          );
         },
       ),
     );

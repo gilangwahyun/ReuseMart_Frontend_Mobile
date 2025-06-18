@@ -1,4 +1,5 @@
 import 'barang_model.dart';
+import 'transaksi_model.dart';
 
 class DetailTransaksiModel {
   final int idDetailTransaksi;
@@ -6,6 +7,7 @@ class DetailTransaksiModel {
   final int idTransaksi;
   final double hargaItem;
   final BarangModel? barang;
+  final TransaksiModel? transaksi;
 
   DetailTransaksiModel({
     required this.idDetailTransaksi,
@@ -13,6 +15,7 @@ class DetailTransaksiModel {
     required this.idTransaksi,
     required this.hargaItem,
     this.barang,
+    this.transaksi,
   });
 
   factory DetailTransaksiModel.fromJson(Map<String, dynamic> json) {
@@ -20,32 +23,39 @@ class DetailTransaksiModel {
       idDetailTransaksi: json['id_detail_transaksi'] ?? 0,
       idBarang: json['id_barang'] ?? 0,
       idTransaksi: json['id_transaksi'] ?? 0,
-      hargaItem:
-          json['harga_item'] != null
-              ? double.parse(json['harga_item'].toString())
-              : 0.0,
+      hargaItem: (json['harga_item'] ?? 0).toDouble(),
       barang:
           json['barang'] != null ? BarangModel.fromJson(json['barang']) : null,
+      transaksi:
+          json['transaksi'] != null
+              ? TransaksiModel.fromJson(json['transaksi'])
+              : null,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
+    final Map<String, dynamic> data = {
       'id_detail_transaksi': idDetailTransaksi,
       'id_barang': idBarang,
       'id_transaksi': idTransaksi,
       'harga_item': hargaItem,
     };
+    if (barang != null) {
+      data['barang'] = barang!.toJson();
+    }
+    if (transaksi != null) {
+      data['transaksi'] = transaksi!.toJson();
+    }
+    return data;
   }
 
-  // Helper untuk format harga ke rupiah
   String get hargaItemFormatted {
     return formatRupiah(hargaItem);
   }
 
-  // Format angka ke Rupiah
-  static String formatRupiah(double amount) {
-    String priceStr = amount.toStringAsFixed(0);
+  String formatRupiah(double price) {
+    int priceInt = price.toInt();
+    String priceStr = priceInt.toString();
     String result = '';
     int count = 0;
 

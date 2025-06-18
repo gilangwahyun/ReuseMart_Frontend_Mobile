@@ -8,6 +8,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:async';
 import 'utils/notification_helper.dart';
+import 'package:reusemart_frontend_mobile/api/api_service.dart';
+import 'package:reusemart_frontend_mobile/pages/splash_screen.dart';
 
 // Global navigator key untuk akses dari mana saja
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -33,6 +35,9 @@ Future<void> main() async {
 
   // Inisialisasi service Firebase
   await FirebaseService.initialize();
+
+  // Set debug mode untuk ApiService - hanya aktif di mode debug
+  ApiService.setDebugMode(false);
 
   runApp(const MyApp());
 }

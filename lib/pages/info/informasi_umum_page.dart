@@ -350,14 +350,14 @@ class _InformasiUmumPageState extends State<InformasiUmumPage> {
             number: 3,
             title: 'Proses Pembayaran',
             description:
-                'Lakukan pembayaran melalui berbagai metode yang tersedia.',
+                'Lakukan pembayaran melalui transfer bank untuk kemudahan.',
             icon: Icons.credit_card,
           ),
           _buildStepCard(
             number: 4,
             title: 'Terima Barang',
             description:
-                'Barang akan dikirimkan ke alamat Anda oleh tim ReuseMart.',
+                'Barang akan dikirimkan ke alamat Anda oleh kurir ReuseMart.',
             icon: Icons.local_shipping,
           ),
 
@@ -571,7 +571,7 @@ class _InformasiUmumPageState extends State<InformasiUmumPage> {
                 const SizedBox(height: 8),
                 _buildContactItem(
                   Icons.location_on,
-                  'Jl. Daur Ulang No. 123, Jakarta',
+                  'Jl. Green Eco Park No. 456 Yogyakarta',
                 ),
               ],
             ),
@@ -610,12 +610,12 @@ class _InformasiUmumPageState extends State<InformasiUmumPage> {
           _buildFaqItem(
             question: 'Berapa komisi yang diambil ReuseMart?',
             answer:
-                'ReuseMart mengambil komisi sebesar 10-20% dari harga jual, tergantung pada kategori dan kondisi barang. Komisi ini digunakan untuk biaya operasional, penyimpanan, pemasaran, dan proses penjualan.',
+                'ReuseMart mengambil komisi sebesar 15-20% dari harga jual, tergantung pada kategori dan kondisi barang. Komisi ini digunakan untuk biaya operasional, penyimpanan, pemasaran, dan proses penjualan.',
           ),
           _buildFaqItem(
             question: 'Kapan saya akan menerima pembayaran?',
             answer:
-                'Setelah barang terjual, pembayaran akan diproses dalam waktu 3-5 hari kerja dan ditransfer ke rekening bank yang telah Anda daftarkan.',
+                'Setelah barang terjual, pembayaran akan segera di proses di hari kerja dan ditransfer ke rekening bank yang telah Anda daftarkan.',
           ),
           _buildFaqItem(
             question: 'Apakah ada jaminan barang akan terjual?',
@@ -636,8 +636,7 @@ class _InformasiUmumPageState extends State<InformasiUmumPage> {
           _buildFaqItem(
             question:
                 'Apakah ReuseMart melayani pengiriman ke seluruh Indonesia?',
-            answer:
-                'Ya, ReuseMart melayani pengiriman ke seluruh Indonesia melalui berbagai jasa ekspedisi terpercaya. Biaya pengiriman ditanggung oleh pembeli.',
+            answer: 'Untuk saat ini ReuseMart hanya beroperasi di Yogyakarta.',
           ),
           const SizedBox(height: 32),
           Container(

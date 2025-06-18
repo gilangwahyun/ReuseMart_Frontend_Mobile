@@ -12,12 +12,35 @@ class KategoriBarangModel {
   });
 
   factory KategoriBarangModel.fromJson(Map<String, dynamic> json) {
-    return KategoriBarangModel(
-      idKategori: json['id_kategori'],
-      namaKategori: json['nama_kategori'] ?? '',
-      deskripsiKategori: json['deskripsi_kategori'],
-      iconKategori: json['icon_kategori'],
-    );
+    try {
+      // Pastikan konversi ke int untuk id_kategori
+      int id;
+      if (json['id_kategori'] is int) {
+        id = json['id_kategori'];
+      } else if (json['id_kategori'] is String) {
+        id = int.parse(json['id_kategori']);
+      } else {
+        print('Warning: id_kategori tidak valid: ${json['id_kategori']}');
+        id = 0; // Default value
+      }
+
+      return KategoriBarangModel(
+        idKategori: id,
+        namaKategori: json['nama_kategori']?.toString() ?? '',
+        deskripsiKategori: json['deskripsi_kategori']?.toString(),
+        iconKategori: json['icon_kategori']?.toString(),
+      );
+    } catch (e) {
+      print('Error parsing KategoriBarangModel: $e');
+      print('JSON data: $json');
+      // Return default model sebagai fallback
+      return KategoriBarangModel(
+        idKategori: 0,
+        namaKategori: json['nama_kategori']?.toString() ?? 'Kategori',
+        deskripsiKategori: null,
+        iconKategori: null,
+      );
+    }
   }
 
   Map<String, dynamic> toJson() {
