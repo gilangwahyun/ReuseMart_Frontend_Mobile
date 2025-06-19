@@ -1,4 +1,6 @@
 import 'api_service.dart';
+import 'dart:developer' as developer;
+import 'package:flutter/foundation.dart';
 
 class BarangApi {
   final ApiService _apiService = ApiService();
@@ -38,6 +40,22 @@ class BarangApi {
   Future<dynamic> getBarangById(int idBarang) async {
     try {
       final response = await _apiService.get('$apiUrl/$idBarang');
+      
+      // Log warranty date information
+      if (response != null) {
+        var data = response;
+        if (response is Map && response.containsKey('data')) {
+          data = response['data'];
+        }
+        
+        if (data is Map && data.containsKey('masa_garansi')) {
+          final warrantyDate = data['masa_garansi'];
+          developer.log('API Response - Warranty date: $warrantyDate (Type: ${warrantyDate.runtimeType})');
+        } else {
+          developer.log('API Response - No warranty date found in response');
+        }
+      }
+      
       return response;
     } catch (error) {
       print('Error mendapatkan detail barang: $error');

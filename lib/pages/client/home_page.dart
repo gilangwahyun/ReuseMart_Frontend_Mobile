@@ -9,6 +9,7 @@ import '../../models/foto_barang_model.dart';
 import '../../routes/app_routes.dart';
 import '../../utils/local_storage.dart';
 import '../../widgets/notification_icon.dart';
+import 'dart:developer' as developer;
 
 class HomePage extends StatefulWidget {
   final bool isEmbedded;
@@ -216,6 +217,74 @@ class _HomePageState extends State<HomePage> {
       print("DEBUG: Navigation method called successfully");
     } catch (e) {
       print("DEBUG ERROR: Failed to navigate: $e");
+    }
+  }
+
+  // Function to check if warranty is still valid
+  bool isWarrantyValid(String? warrantyDate) {
+    if (warrantyDate == null || warrantyDate.isEmpty) {
+      return false;
+    }
+
+    developer.log('Checking warranty date: $warrantyDate');
+
+    try {
+      DateTime? warrantyDateTime;
+
+      // Try DD/MM/YYYY format first
+      if (warrantyDate.contains('/')) {
+        final parts = warrantyDate.split('/');
+        if (parts.length == 3) {
+          final day = int.tryParse(parts[0]) ?? 1;
+          final month = int.tryParse(parts[1]) ?? 1;
+          final year = int.tryParse(parts[2]) ?? 2000;
+          warrantyDateTime = DateTime(year, month, day);
+        }
+      } 
+      // Try YYYY-MM-DD format
+      else if (warrantyDate.contains('-')) {
+        try {
+          warrantyDateTime = DateTime.parse(warrantyDate);
+        } catch (e) {
+          final parts = warrantyDate.split('-');
+          if (parts.length == 3) {
+            final year = int.tryParse(parts[0]) ?? 2000;
+            final month = int.tryParse(parts[1]) ?? 1;
+            final day = int.tryParse(parts[2]) ?? 1;
+            warrantyDateTime = DateTime(year, month, day);
+          }
+        }
+      }
+      // Try to directly parse the date
+      else {
+        try {
+          warrantyDateTime = DateTime.parse(warrantyDate);
+        } catch (e) {
+          // If all parsing attempts fail, try to extract numbers and assume it's a future date
+          final RegExp regExp = RegExp(r'\d+');
+          final matches = regExp.allMatches(warrantyDate);
+          if (matches.isNotEmpty) {
+            // If we find any numbers, assume it's a valid warranty
+            return true;
+          }
+        }
+      }
+      
+      if (warrantyDateTime != null) {
+        final currentDate = DateTime.now();
+        // Compare with current date
+        final isValid = warrantyDateTime.isAfter(currentDate);
+        developer.log('Warranty date: $warrantyDateTime, Current: $currentDate, Valid: $isValid');
+        return isValid;
+      }
+      
+      // If we couldn't parse the date but it's not empty, assume it's valid
+      developer.log('Could not parse warranty date format: $warrantyDate - assuming valid');
+      return true;
+    } catch (e) {
+      developer.log('Error parsing warranty date: $e');
+      // If there's an error in parsing but the warranty string exists, assume it's valid
+      return true;
     }
   }
 
@@ -540,6 +609,9 @@ class _HomePageState extends State<HomePage> {
       itemCount: _barangList!.length,
       itemBuilder: (context, index) {
         final barang = _barangList![index];
+        // Check if warranty is valid
+        final bool hasValidWarranty = isWarrantyValid(barang.masaGaransi);
+        
         return Card(
           elevation: 2,
           shape: RoundedRectangleBorder(
@@ -635,10 +707,10 @@ class _HomePageState extends State<HomePage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              barang.masaGaransi != null && barang.masaGaransi!.isNotEmpty
+                              hasValidWarranty
                                 ? Icons.verified_outlined
                                 : Icons.not_interested,
-                              color: barang.masaGaransi != null && barang.masaGaransi!.isNotEmpty
+                              color: hasValidWarranty
                                 ? Colors.green.shade300
                                 : Colors.grey.shade400,
                               size: 14,
@@ -646,13 +718,13 @@ class _HomePageState extends State<HomePage> {
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
-                                barang.masaGaransi != null && barang.masaGaransi!.isNotEmpty
+                                hasValidWarranty
                                   ? 'Garansi: ${barang.masaGaransi}'
                                   : 'Tanpa Garansi',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 10,
-                                  fontWeight: barang.masaGaransi != null && barang.masaGaransi!.isNotEmpty
+                                  fontWeight: hasValidWarranty
                                     ? FontWeight.bold
                                     : FontWeight.normal,
                                 ),
@@ -820,10 +892,10 @@ class _HomePageState extends State<HomePage> {
                         title: const Text('Riwayat Transaksi'),
                         onTap: () {
                           Navigator.pop(context);
-                          // Navigasi ke halaman profil
+                          // Navigasi ke halaman riwayat transaksi
                           AppRoutes.navigateTo(
                             context,
-                            AppRoutes.pembeliContainer,
+                            AppRoutes.riwayatTransaksi,
                           );
                         },
                       ),

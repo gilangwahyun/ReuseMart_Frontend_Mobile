@@ -25,6 +25,27 @@ class KomisiPegawaiApi {
       return [];
     }
   }
+  
+  Future<KomisiPegawaiModel?> getKomisiById(int idKomisi) async {
+    try {
+      final response = await _apiService.get('komisiPegawai/$idKomisi');
+      
+      if (response != null) {
+        if (response is Map) {
+          if (response.containsKey('data')) {
+            return KomisiPegawaiModel.fromJson(response['data'] as Map<String, dynamic>);
+          } else {
+            return KomisiPegawaiModel.fromJson(response as Map<String, dynamic>);
+          }
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      print('Error fetching komisi details: $e');
+      return null;
+    }
+  }
 
   Future<Map<String, dynamic>> getLaporanKomisiHunterBulanan(int idPegawai, {int? tahun, int? bulan}) async {
     try {

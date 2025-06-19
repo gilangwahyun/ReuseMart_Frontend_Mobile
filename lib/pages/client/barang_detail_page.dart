@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:developer' as developer;
+import 'package:carousel_slider/carousel_slider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../api/barang_api.dart';
 import '../../api/foto_barang_api.dart';
 import '../../models/barang_model.dart';
 import '../../models/foto_barang_model.dart';
+import '../../routes/app_routes.dart';
 
 class BarangDetailPage extends StatefulWidget {
-  final int idBarang;
-  final BarangModel? initialData;
+  final int? idBarang;
+  final Map<String, dynamic>? arguments;
 
-  const BarangDetailPage({super.key, required this.idBarang, this.initialData});
+  const BarangDetailPage({
+    Key? key,
+    this.idBarang,
+    this.arguments,
+  }) : super(key: key);
 
   @override
   State<BarangDetailPage> createState() => _BarangDetailPageState();
@@ -25,6 +33,7 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
   List<FotoBarangModel> _fotoList = [];
   int _currentImageIndex = 0;
   final PageController _pageController = PageController();
+  bool _isLoggedIn = false;
 
   @override
   void initState() {
@@ -32,11 +41,14 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
 
     developer.log('BarangDetailPage initialized for ID: ${widget.idBarang}');
     
+    // Check if user is logged in
+    _checkLoginStatus();
+    
     // Jika ada initial data, gunakan dulu
-    if (widget.initialData != null) {
-      developer.log('Using initial data for barang: ${widget.initialData!.namaBarang}');
+    if (widget.arguments != null && widget.arguments!.containsKey('barang')) {
+      developer.log('Using initial data for barang: ${widget.arguments!['barang']['namaBarang']}');
       setState(() {
-        _barang = widget.initialData;
+        _barang = BarangModel.fromJson(widget.arguments!['barang']);
         _isLoading = false;
       });
     }
@@ -54,7 +66,7 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
       });
 
       // Ambil detail barang
-      final response = await _barangApi.getBarangById(widget.idBarang);
+      final response = await _barangApi.getBarangById(widget.idBarang!);
       developer.log('Received API response for barang: $response');
 
       if (response != null) {
@@ -71,10 +83,23 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
         }
 
         developer.log('Successfully parsed barang detail: ${barangDetail.namaBarang}');
+        
+        // Log info about penitipan and penitip
+        if (barangDetail.penitipanBarang != null) {
+          developer.log('Penitipan data found: ID=${barangDetail.penitipanBarang!.idPenitipan}');
+          
+          if (barangDetail.penitipanBarang!.penitip != null) {
+            developer.log('Penitip data found: ${barangDetail.penitipanBarang!.penitip!.namaPenitip}');
+          } else {
+            developer.log('No penitip data found in penitipan');
+          }
+        } else {
+          developer.log('No penitipan data found for this barang');
+        }
 
         // Load foto barang
         developer.log('Loading photos for barang ID: ${widget.idBarang}');
-        final fotoResponse = await _fotoApi.getFotoByBarangId(widget.idBarang);
+        final fotoResponse = await _fotoApi.getFotoByBarangId(widget.idBarang!);
         List<FotoBarangModel> fotos = [];
 
         if (fotoResponse != null) {
@@ -131,7 +156,7 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
   @override
   Widget build(BuildContext context) {
     // Jika masih loading dan tidak ada initial data
-    if (_isLoading && widget.initialData == null) {
+    if (_isLoading && widget.arguments == null) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Detail Barang'),
@@ -146,7 +171,7 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
     }
 
     // Jika ada error dan tidak ada initial data
-    if (_errorMessage != null && widget.initialData == null) {
+    if (_errorMessage != null && widget.arguments == null) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Detail Barang'),
@@ -178,7 +203,7 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
     }
 
     // Pastikan kita memiliki data barang (dari initial data atau hasil loading)
-    final barang = _barang ?? widget.initialData!;
+    final barang = _barang ?? BarangModel.fromJson(widget.arguments!['barang']);
 
     // Buat list foto yang akan ditampilkan
     List<String> imageUrls = [];
@@ -195,6 +220,9 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
         imageUrls.add(foto.url);
       }
     }
+
+    // Check if warranty is valid
+    final bool hasValidWarranty = isWarrantyValid(barang.masaGaransi);
 
     return Scaffold(
       appBar: AppBar(
@@ -272,82 +300,7 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
                     const SizedBox(height: 16),
 
                     // Detail Info Section
-                    _buildDetailSection('Informasi Barang', [
-                      if (barang.kategori != null)
-                        _buildDetailRow(
-                          'Kategori',
-                          barang.kategori!.namaKategori,
-                        ),
-                      if (barang.berat != null)
-                        _buildDetailRow('Berat', '${barang.berat} gram'),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: 100,
-                            child: Text(
-                              'Garansi',
-                              style: TextStyle(fontSize: 15, color: Colors.grey.shade700),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: barang.masaGaransi != null && barang.masaGaransi!.isNotEmpty
-                              ? Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.shade100,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Colors.green.shade600),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.verified_outlined, color: Colors.green.shade700, size: 16),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            barang.masaGaransi!,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.green.shade800,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.grey.shade400),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.not_interested, color: Colors.grey.shade600, size: 16),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Tidak ada garansi',
-                                        style: TextStyle(
-                                          fontSize: 14, 
-                                          color: Colors.grey.shade800,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                          ),
-                        ],
-                      ),
-                      if (barang.rating != null)
-                        _buildDetailRow('Rating', '${barang.rating}/5'),
-                    ]),
+                    _buildDetailInfo(),
 
                     const SizedBox(height: 16),
 
@@ -358,28 +311,13 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
 
                     // Data Penitipan
                     if (barang.penitipanBarang != null)
-                      _buildDetailSection('Informasi Penitipan', [
+                      _buildDetailSection('Informasi Pemilik', [
                         _buildDetailRow(
-                          'Tanggal Awal',
-                          _formatDate(
-                            barang.penitipanBarang!.tanggalAwalPenitipan,
-                          ),
+                          'Pemilik Barang',
+                          barang.penitipanBarang!.penitip != null
+                              ? barang.penitipanBarang!.penitip!.namaPenitip
+                              : 'Tidak tersedia',
                         ),
-                        _buildDetailRow(
-                          'Tanggal Akhir',
-                          _formatDate(
-                            barang.penitipanBarang!.tanggalAkhirPenitipan,
-                          ),
-                        ),
-                        _buildDetailRow(
-                          'Petugas QC',
-                          barang.penitipanBarang!.namaPetugasQc,
-                        ),
-                        if (barang.penitipanBarang!.pegawai != null)
-                          _buildDetailRow(
-                            'Hunter',
-                            barang.penitipanBarang!.pegawai!.namaPegawai,
-                          ),
                       ]),
 
                     const SizedBox(height: 16),
@@ -411,6 +349,45 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
                     ),
 
                     const SizedBox(height: 24),
+                    
+                    // Call to action button for non-logged in users
+                    if (!_isLoggedIn)
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Login untuk membeli barang ini',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: () {
+                                AppRoutes.navigateTo(context, AppRoutes.login);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green.shade600,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 32,
+                                  vertical: 12,
+                                ),
+                              ),
+                              child: const Text(
+                                'Login / Daftar',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -527,6 +504,151 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
     );
   }
 
+  Widget _buildDetailInfo() {
+    if (_isLoading) {
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(
+            Colors.green.shade600,
+          ),
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 60,
+              color: Colors.red.shade300,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.red.shade700),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadBarangDetail,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade600,
+              ),
+              child: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_barang == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inventory_2_outlined,
+              size: 60,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Data barang tidak ditemukan',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final barang = _barang!;
+    // Check if warranty is valid
+    final bool hasValidWarranty = isWarrantyValid(barang.masaGaransi);
+
+    return _buildDetailSection('Informasi Barang', [
+      if (barang.kategori != null)
+        _buildDetailRow(
+          'Kategori',
+          barang.kategori!.namaKategori,
+        ),
+      if (barang.berat != null)
+        _buildDetailRow('Berat', '${barang.berat} gram'),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              'Garansi',
+              style: TextStyle(fontSize: 15, color: Colors.grey.shade700),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: hasValidWarranty
+              ? Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.green.shade600),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.verified_outlined, color: Colors.green.shade700, size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                            barang.masaGaransi!,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              : Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade400),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.not_interested, color: Colors.grey.shade600, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Tidak ada garansi',
+                        style: TextStyle(
+                          fontSize: 14, 
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+          ),
+        ],
+      ),
+      if (barang.rating != null)
+        _buildDetailRow('Rating', '${barang.rating}/5'),
+    ]);
+  }
+
   Widget _buildDetailSection(String title, List<Widget> items) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -641,9 +763,96 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
     }
   }
 
+  // Function to check if warranty is still valid
+  bool isWarrantyValid(String? warrantyDate) {
+    if (warrantyDate == null || warrantyDate.isEmpty) {
+      return false;
+    }
+
+    developer.log('Checking warranty date: $warrantyDate');
+
+    try {
+      DateTime? warrantyDateTime;
+
+      // Try DD/MM/YYYY format first
+      if (warrantyDate.contains('/')) {
+        final parts = warrantyDate.split('/');
+        if (parts.length == 3) {
+          final day = int.tryParse(parts[0]) ?? 1;
+          final month = int.tryParse(parts[1]) ?? 1;
+          final year = int.tryParse(parts[2]) ?? 2000;
+          warrantyDateTime = DateTime(year, month, day);
+        }
+      } 
+      // Try YYYY-MM-DD format
+      else if (warrantyDate.contains('-')) {
+        try {
+          warrantyDateTime = DateTime.parse(warrantyDate);
+        } catch (e) {
+          final parts = warrantyDate.split('-');
+          if (parts.length == 3) {
+            final year = int.tryParse(parts[0]) ?? 2000;
+            final month = int.tryParse(parts[1]) ?? 1;
+            final day = int.tryParse(parts[2]) ?? 1;
+            warrantyDateTime = DateTime(year, month, day);
+          }
+        }
+      }
+      // Try to directly parse the date
+      else {
+        try {
+          warrantyDateTime = DateTime.parse(warrantyDate);
+        } catch (e) {
+          // If all parsing attempts fail, try to extract numbers and assume it's a future date
+          final RegExp regExp = RegExp(r'\d+');
+          final matches = regExp.allMatches(warrantyDate);
+          if (matches.isNotEmpty) {
+            // If we find any numbers, assume it's a valid warranty
+            return true;
+          }
+        }
+      }
+      
+      if (warrantyDateTime != null) {
+        final currentDate = DateTime.now();
+        // Compare with current date
+        final isValid = warrantyDateTime.isAfter(currentDate);
+        developer.log('Warranty date: $warrantyDateTime, Current: $currentDate, Valid: $isValid');
+        return isValid;
+      }
+      
+      // If we couldn't parse the date but it's not empty, assume it's valid
+      developer.log('Could not parse warranty date format: $warrantyDate - assuming valid');
+      return true;
+    } catch (e) {
+      developer.log('Error parsing warranty date: $e');
+      // If there's an error in parsing but the warranty string exists, assume it's valid
+      return true;
+    }
+  }
+
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  // Check if user is logged in by looking for token in SharedPreferences
+  Future<void> _checkLoginStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      
+      setState(() {
+        _isLoggedIn = token != null && token.isNotEmpty;
+      });
+      
+      developer.log('User login status: ${_isLoggedIn ? 'Logged in' : 'Not logged in'}');
+    } catch (e) {
+      developer.log('Error checking login status: $e');
+      setState(() {
+        _isLoggedIn = false;
+      });
+    }
   }
 }

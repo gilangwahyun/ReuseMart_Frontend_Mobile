@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../../api/auth_api.dart';
-import '../../api/user_api.dart';
-import '../../components/custom_button.dart';
+import '../../api/pembeli_api.dart';
 import '../../models/user_profile_model.dart';
+import '../../models/pembeli_model.dart';
+import '../../components/layouts/base_layout.dart';
+import '../../components/custom_button.dart';
 import '../../routes/app_routes.dart';
 import '../../utils/local_storage.dart';
 import 'merchandise_page.dart';
@@ -20,7 +23,7 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
   UserProfileModel? _userProfile;
   bool _isLoading = true;
   final AuthApi _authApi = AuthApi();
-  final UserApi _userApi = UserApi();
+  final PembeliApi _pembeliApi = PembeliApi();
   int _selectedNavIndex = 3; // 3 untuk halaman profile
   String? _error;
 
@@ -81,15 +84,19 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
           (localProfile?.user.token != null &&
               localProfile!.user.token!.isNotEmpty)) {
         try {
-          final apiProfile = await _userApi.getProfile();
-
-          setState(() {
-            _userProfile = apiProfile;
-          });
-
-          // Simpan data terbaru ke local storage
-          await LocalStorage.saveProfile(apiProfile);
-          print('Data profil diperbarui dari API');
+          // Get user data from localStorage instead of an API call
+          final userData = await LocalStorage.getUserMap();
+          if (userData != null && userData['id_user'] != null) {
+            // Get pembeli data if needed
+            final pembeliData = await _pembeliApi.getPembeliByUserId(userData['id_user']);
+            
+            // We'll continue using the local profile since it's more complete
+            setState(() {
+              _userProfile = localProfile;
+            });
+            
+            print('Data profil diperbarui dari localStorage');
+          }
         } catch (e) {
           print('Error saat mengambil profil dari API: $e');
           // Jika gagal mengambil dari API tapi masih ada data lokal,
@@ -389,12 +396,8 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
             title: 'Riwayat Transaksi',
             subtitle: 'Lihat semua transaksi Anda',
             onTap: () {
-              // Untuk sementara tidak ada navigasi
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Fitur ini sedang dalam pengembangan'),
-                ),
-              );
+              // Navigate to transaction history page
+              Navigator.pushNamed(context, AppRoutes.riwayatTransaksi);
             },
           ),
           const Divider(height: 1),

@@ -3,7 +3,6 @@ import '../../api/transaksi_api.dart';
 import '../../api/detail_transaksi_api.dart';
 import '../../models/transaksi_model.dart';
 import '../../models/detail_transaksi_model.dart';
-import '../../components/layouts/base_layout.dart';
 import '../../utils/local_storage.dart';
 import '../../components/custom_app_bar.dart';
 
@@ -95,24 +94,11 @@ class _RiwayatTransaksiPageState extends State<RiwayatTransaksiPage> {
 
   Future<void> _loadDetailTransaksi(int idTransaksi) async {
     try {
-      final response = await _detailTransaksiApi.getDetailTransaksiByTransaksi(
+      final detailList = await _detailTransaksiApi.getDetailTransaksiByTransaksi(
         idTransaksi,
       );
 
-      if (response != null) {
-        List<DetailTransaksiModel> detailList = [];
-        if (response is List) {
-          detailList =
-              response
-                  .map((item) => DetailTransaksiModel.fromJson(item))
-                  .toList();
-        } else if (response is Map && response.containsKey('data')) {
-          detailList =
-              (response['data'] as List)
-                  .map((item) => DetailTransaksiModel.fromJson(item))
-                  .toList();
-        }
-
+      if (detailList.isNotEmpty) {
         setState(() {
           _detailTransaksiMap[idTransaksi] = detailList;
         });
@@ -281,42 +267,34 @@ class _RiwayatTransaksiPageState extends State<RiwayatTransaksiPage> {
                       ],
                     ),
                   ),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount:
-                        _detailTransaksiMap[transaksi.idTransaksi]!.length,
-                    itemBuilder: (context, index) {
-                      final detail =
-                          _detailTransaksiMap[transaksi.idTransaksi]![index];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                detail.barang?.namaBarang ??
-                                    'Produk #${detail.idBarang}',
-                                style: const TextStyle(fontSize: 14),
-                              ),
+                  ..._detailTransaksiMap[transaksi.idTransaksi]!.map((detail) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              detail.barang?.namaBarang ??
+                                  'Produk #${detail.idBarang}',
+                              style: const TextStyle(fontSize: 14),
                             ),
-                            Expanded(
-                              flex: 1,
-                              child: Text(
-                                'Rp ${detail.hargaItemFormatted}',
-                                textAlign: TextAlign.right,
-                                style: const TextStyle(fontSize: 14),
-                              ),
+                          ),
+                          Expanded(
+                            flex: 1,
+                            child: Text(
+                              'Rp ${detail.hargaItemFormatted}',
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(fontSize: 14),
                             ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
                   const SizedBox(height: 16),
                 ],
               )

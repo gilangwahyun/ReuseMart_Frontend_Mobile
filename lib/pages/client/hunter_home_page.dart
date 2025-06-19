@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:developer' as developer;
 import '../../api/auth_api.dart';
 import '../../api/pegawai_api.dart';
 import '../../api/komisi_pegawai_api.dart';
@@ -7,6 +8,7 @@ import '../../models/pegawai_model.dart';
 import '../../models/user_profile_model.dart';
 import '../../routes/app_routes.dart';
 import '../../utils/local_storage.dart';
+import 'komisi_detail_page.dart';
 
 class HunterHomePage extends StatefulWidget {
   const HunterHomePage({super.key});
@@ -262,7 +264,7 @@ class _HunterHomePageState extends State<HunterHomePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Detail Komisi',
+            'History Komisi',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
@@ -301,89 +303,101 @@ class _HunterHomePageState extends State<HunterHomePage> {
   }
 
   Widget _buildKomisiItem(KomisiPegawaiModel komisi) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.receipt, color: Colors.green.shade700),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Transaksi #${komisi.idTransaksi}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade100,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.green.shade400),
-                  ),
-                  child: Text(
-                    'Rp ${_formatRupiah(komisi.jumlahKomisi)}',
-                    style: TextStyle(
-                      color: Colors.green.shade800,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => KomisiDetailPage(
+              komisiId: komisi.idKomisiPegawai,
             ),
-            const SizedBox(height: 12),
-            if (komisi.transaksi != null && komisi.transaksi!.containsKey('tanggal_transaksi'))
+          ),
+        );
+      },
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 16),
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Row(
                 children: [
-                  Icon(
-                    Icons.calendar_today,
-                    size: 16,
-                    color: Colors.grey.shade600,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Tanggal: ${_formatDate(komisi.transaksi!['tanggal_transaksi'])}',
-                    style: TextStyle(color: Colors.grey.shade700),
-                  ),
-                ],
-              ),
-            const SizedBox(height: 8),
-            if (komisi.transaksi != null && 
-                komisi.transaksi!.containsKey('alamat') && 
-                komisi.transaksi!['alamat'] != null)
-              Row(
-                children: [
-                  Icon(
-                    Icons.location_on,
-                    size: 16,
-                    color: Colors.grey.shade600,
-                  ),
+                  Icon(Icons.receipt, color: Colors.green.shade700),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      komisi.transaksi!['alamat']['alamat_lengkap'] ??
-                          'Tidak ada alamat',
-                      style: TextStyle(color: Colors.grey.shade700),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      'Transaksi #${komisi.idTransaksi}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade100,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.green.shade400),
+                    ),
+                    child: Text(
+                      'Rp ${_formatRupiah(komisi.jumlahKomisi)}',
+                      style: TextStyle(
+                        color: Colors.green.shade800,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
               ),
-          ],
+              const SizedBox(height: 12),
+              if (komisi.transaksi != null && komisi.transaksi!.containsKey('tanggal_transaksi'))
+                Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 16,
+                      color: Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Tanggal: ${_formatDate(komisi.transaksi!['tanggal_transaksi'])}',
+                      style: TextStyle(color: Colors.grey.shade700),
+                    ),
+                  ],
+                ),
+              const SizedBox(height: 8),
+              if (komisi.transaksi != null && 
+                  komisi.transaksi!.containsKey('alamat') && 
+                  komisi.transaksi!['alamat'] != null)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on,
+                      size: 16,
+                      color: Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        komisi.transaksi!['alamat']['alamat_lengkap'] ??
+                            'Tidak ada alamat',
+                        style: TextStyle(color: Colors.grey.shade700),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );

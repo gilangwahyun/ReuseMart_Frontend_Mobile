@@ -19,6 +19,7 @@ import '../pages/client/hunter_profile_page.dart';
 import '../pages/client/hunter_home_page.dart';
 import '../pages/client/hunter_container_page.dart';
 import '../pages/client/merchandise_page.dart';
+import '../pages/client/riwayat_transaksi_page.dart';
 import '../pages/info/informasi_umum_page.dart';
 import '../pages/splash_screen.dart';
 import '../pages/notification_settings_page.dart';
@@ -38,6 +39,7 @@ class AppRoutes {
   static const String notifications = '/notifications';
   static const String settings = '/settings';
   static const String merchandise = '/merchandise';
+  static const String riwayatTransaksi = '/riwayat_transaksi';
 
   // Rute untuk Pembeli
   static const String pembeliContainer = '/pembeli/container';
@@ -108,6 +110,7 @@ class AppRoutes {
       notifications: (context) => const NotificationListPage(),
       settings: (context) => const SettingsPage(),
       merchandise: (context) => const MerchandisePage(),
+      riwayatTransaksi: (context) => const RiwayatTransaksiPage(),
     };
   }
 

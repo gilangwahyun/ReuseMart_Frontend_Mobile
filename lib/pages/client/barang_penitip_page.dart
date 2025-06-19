@@ -260,7 +260,7 @@ class _BarangPenitipPageState extends State<BarangPenitipPage> {
               builder:
                   (context) => BarangDetailPage(
                     idBarang: barang.idBarang,
-                    initialData: barang,
+                    arguments: {'barang': barang.toJson()},
                   ),
             ),
           );
