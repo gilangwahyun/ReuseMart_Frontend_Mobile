@@ -10,7 +10,7 @@ import 'dart:async';
 // URL API untuk mengakses Laravel - Dibuat public agar dapat diakses di file lain
 // const String BASE_URL = "http://10.0.2.2:8000"; // Emulator
 // const String BASE_URL = "http://192.168.74.230:8000";
-const String BASE_URL = "http://192.168.100.89:8000"; // Wifi Kos
+const String BASE_URL = "http://192.168.236.22:8000"; // Wifi Kos
 // const String BASE_URL = "http://192.168.149.30:8000"; // Hotspot HP
 
 class ApiService {
