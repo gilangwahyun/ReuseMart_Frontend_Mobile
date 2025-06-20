@@ -80,6 +80,24 @@ class _KurirProfilePageState extends State<KurirProfilePage> {
     }
   }
 
+  void _onNavBarTapped(int index) {
+    if (_selectedNavIndex == index) return;
+
+    setState(() {
+      _selectedNavIndex = index;
+    });
+
+    switch (index) {
+      case 0:
+        // Navigate to home page
+        AppRoutes.navigateAndReplace(context, AppRoutes.kurirHome);
+        break;
+      case 1:
+        // Already on profile page
+        break;
+    }
+  }
+
   void _handleLogout() async {
     // Show confirmation dialog
     final shouldLogout = await showDialog<bool>(
@@ -148,13 +166,6 @@ class _KurirProfilePageState extends State<KurirProfilePage> {
       );
     }
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        backgroundColor: Colors.green.shade600,
-        actions: [
-          NotificationIcon(color: Colors.white, badgeColor: Colors.amber),
-        ],
-      ),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -164,22 +175,7 @@ class _KurirProfilePageState extends State<KurirProfilePage> {
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedNavIndex,
-        onTap: _onNavBarTapped,
-        selectedItemColor: Colors.green.shade700,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-//     return SingleChildScrollView(
-//       child: Column(
-//         children: [
-//           _buildProfileHeader(),
-//           _buildProfileDetails(),
-//           _buildLogoutButton(),
-//         ],
-//       ),
-//     );
+    );
   }
 
   Widget _buildProfileHeader() {

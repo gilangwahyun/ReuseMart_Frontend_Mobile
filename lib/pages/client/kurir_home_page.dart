@@ -564,35 +564,4 @@ class _KurirHomePageState extends State<KurirHomePage> {
       return isoDate.substring(0, 10);
     }
   }
-
-  Future<void> _updateJadwalStatus(JadwalModel jadwal, String newStatus) async {
-    try {
-      await _jadwalApi.updateJadwalStatus(jadwal.idJadwal, {
-        'id_transaksi': jadwal.idTransaksi,
-        'id_pegawai': jadwal.idPegawai,
-        'tanggal': jadwal.tanggal,
-        'status_jadwal': newStatus,
-      });
-
-      // Refresh the data
-      if (_pegawaiProfile != null) {
-        await _loadJadwalData(_pegawaiProfile!.idPegawai);
-      }
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Status updated to $newStatus'),
-          backgroundColor: Colors.green.shade700,
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to update status: $e'),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
-    }
-  }
 }
