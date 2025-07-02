@@ -3,6 +3,7 @@ import 'pembeli_model.dart';
 import 'penitip_model.dart';
 import 'pegawai_model.dart';
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 class UserProfileModel {
   final UserModel user;
@@ -64,8 +65,8 @@ class UserProfileModel {
 
   factory UserProfileModel.fromJson(Map<String, dynamic> json) {
     try {
-      print("Parsing UserProfileModel dari: ${json.keys.toList()}");
-      print("JSON Data: ${jsonEncode(json)}");
+      developer.log("Parsing UserProfileModel dari: ${json.keys.toList()}");
+      developer.log("JSON Data: ${jsonEncode(json)}");
 
       // Coba identifikasi struktur JSON yang beragam
       UserModel user;
@@ -76,11 +77,11 @@ class UserProfileModel {
       // Ekstrak user data
       if (json.containsKey('user')) {
         // Format 1: { user: {...}, penitip/pembeli: {...} }
-        print("Format JSON dengan key 'user' terdeteksi");
+        developer.log("Format JSON dengan key 'user' terdeteksi");
         user = UserModel.fromJson(json['user']);
       } else if (json.containsKey('id_user')) {
         // Format 2: user data langsung di root objek
-        print("Format JSON dengan user data di root level");
+        developer.log("Format JSON dengan user data di root level");
         user = UserModel.fromJson(json);
       } else {
         throw Exception('Format JSON tidak valid: tidak ada data user');
@@ -88,41 +89,56 @@ class UserProfileModel {
 
       // Ekstrak data penitip/pembeli/pegawai berdasarkan role
       String role = user.role.toLowerCase();
-      print("User role terdeteksi: $role");
+      developer.log("User role terdeteksi: $role");
 
       // Coba cari data penitip
       if (role == 'penitip') {
-        if (json.containsKey('penitip') && json['penitip'] != null) {
-          print("Data penitip ditemukan dalam format JSON standard");
-          penitip = PenitipModel.fromJson(json['penitip']);
-        } else if (json.containsKey('data') && json['data'] != null) {
-          // Format dari API: {success: true, data: {...}}
-          print("Data penitip ditemukan dalam format data wrapper");
-          penitip = PenitipModel.fromJson(json['data']);
+        try {
+          if (json.containsKey('penitip') && json['penitip'] != null) {
+            developer.log("Data penitip ditemukan dalam format JSON standard");
+            penitip = PenitipModel.fromJson(json['penitip']);
+          } else if (json.containsKey('data') && json['data'] != null) {
+            // Format dari API: {success: true, data: {...}}
+            developer.log("Data penitip ditemukan dalam format data wrapper");
+            penitip = PenitipModel.fromJson(json['data']);
+          }
+        } catch (e) {
+          developer.log("Error saat parsing data penitip: $e");
         }
       }
 
       // Coba cari data pembeli
       if (role == 'pembeli') {
-        if (json.containsKey('pembeli') && json['pembeli'] != null) {
-          print("Data pembeli ditemukan dalam format JSON standard");
-          pembeli = PembeliModel.fromJson(json['pembeli']);
-        } else if (json.containsKey('data') && json['data'] != null) {
-          // Format dari API: {success: true, data: {...}}
-          print("Data pembeli ditemukan dalam format data wrapper");
-          pembeli = PembeliModel.fromJson(json['data']);
+        try {
+          if (json.containsKey('pembeli') && json['pembeli'] != null) {
+            developer.log("Data pembeli ditemukan dalam format JSON standard");
+            pembeli = PembeliModel.fromJson(json['pembeli']);
+          } else if (json.containsKey('data') && json['data'] != null) {
+            // Format dari API: {success: true, data: {...}}
+            developer.log("Data pembeli ditemukan dalam format data wrapper");
+            var pembeliData = json['data'];
+            developer.log("Data pembeli yang akan di-parse: $pembeliData");
+            pembeli = PembeliModel.fromJson(pembeliData);
+          }
+        } catch (e) {
+          developer.log("Error saat parsing data pembeli: $e");
+          developer.log("Data respons yang menyebabkan error: $json");
         }
       }
 
       // Coba cari data pegawai/kurir
       if (role == 'kurir' || role == 'pegawai') {
-        print("Mencoba ekstrak data pegawai/kurir");
-        if (json.containsKey('pegawai') && json['pegawai'] != null) {
-          print("Data pegawai ditemukan dalam format JSON standard");
-          pegawai = PegawaiModel.fromJson(json['pegawai']);
-        } else if (json.containsKey('data') && json['data'] != null) {
-          print("Data pegawai ditemukan dalam format data wrapper");
-          pegawai = PegawaiModel.fromJson(json['data']);
+        try {
+          developer.log("Mencoba ekstrak data pegawai/kurir");
+          if (json.containsKey('pegawai') && json['pegawai'] != null) {
+            developer.log("Data pegawai ditemukan dalam format JSON standard");
+            pegawai = PegawaiModel.fromJson(json['pegawai']);
+          } else if (json.containsKey('data') && json['data'] != null) {
+            developer.log("Data pegawai ditemukan dalam format data wrapper");
+            pegawai = PegawaiModel.fromJson(json['data']);
+          }
+        } catch (e) {
+          developer.log("Error saat parsing data pegawai: $e");
         }
       }
 
@@ -133,8 +149,8 @@ class UserProfileModel {
         pegawai: pegawai,
       );
     } catch (e) {
-      print("Error parsing UserProfileModel: $e");
-      print("JSON data: ${jsonEncode(json)}");
+      developer.log("Error parsing UserProfileModel: $e");
+      developer.log("JSON data: ${jsonEncode(json)}");
 
       // Coba ekstrak user minimal
       try {
@@ -149,7 +165,9 @@ class UserProfileModel {
 
         return UserProfileModel(user: user);
       } catch (innerError) {
-        print("Fatal error dalam parsing UserProfileModel: $innerError");
+        developer.log(
+          "Fatal error dalam parsing UserProfileModel: $innerError",
+        );
         // Buat user model darurat
         final emergencyUser = UserModel(
           idUser: 0,

@@ -10,7 +10,7 @@ import 'dart:async';
 // URL API untuk mengakses Laravel - Dibuat public agar dapat diakses di file lain
 // const String BASE_URL = "http://10.0.2.2:8000"; // Emulator
 // const String BASE_URL = "http://192.168.74.230:8000";
-const String BASE_URL = "http://192.168.236.22:8000"; // Wifi Kos
+const String BASE_URL = "https://api.reusemartuajy.my.id"; // Wifi Kos
 // const String BASE_URL = "http://192.168.149.30:8000"; // Hotspot HP
 
 class ApiService {
@@ -86,6 +86,17 @@ class ApiService {
   String getImageUrl(String imagePath) {
     if (imagePath.isEmpty) return '';
     if (imagePath.startsWith('http')) return imagePath;
+
+    // Log untuk debug URL
+    developer.log('Getting image URL for path: $imagePath');
+
+    // Untuk gambar yang disimpan di folder public/images/barang
+    if (imagePath.contains('images/barang')) {
+      developer.log('Detected images/barang path, using direct URL');
+      return '$BASE_URL/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}';
+    }
+
+    // Untuk gambar yang disimpan di storage Laravel
     return '$BASE_URL/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}';
   }
 
@@ -160,13 +171,52 @@ class ApiService {
     }
   }
 
-  // POST request
+  // POST request dengan retry untuk menangani error 500
   Future<dynamic> post(String endpoint, dynamic data) async {
+    // Coba pertama kali dengan timeout normal
+    try {
+      return await _postWithTimeout(
+        endpoint,
+        data,
+        const Duration(seconds: 30),
+      );
+    } catch (e) {
+      developer.log('POST request pertama gagal: $e');
+
+      // Jika error 500, coba lagi dengan timeout lebih lama
+      if (e.toString().contains('500')) {
+        developer.log(
+          'Mencoba ulang POST request dengan timeout lebih lama...',
+        );
+        try {
+          return await _postWithTimeout(
+            endpoint,
+            data,
+            const Duration(seconds: 60),
+          );
+        } catch (retryError) {
+          developer.log('POST retry gagal: $retryError');
+          rethrow;
+        }
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  // POST request dengan timeout kustom
+  Future<dynamic> _postWithTimeout(
+    String endpoint,
+    dynamic data,
+    Duration timeout,
+  ) async {
     try {
       final token = await LocalStorage.getToken();
       final url = Uri.parse('$baseUrl/${_formatEndpoint(endpoint)}');
 
       _log('POST Request to: $url');
+      _log('POST data: ${json.encode(data)}');
+      _log('Timeout: ${timeout.inSeconds} seconds');
 
       final Map<String, String> headers = Map<String, String>.from(
         await _getHeaders(),
@@ -175,13 +225,20 @@ class ApiService {
         headers['Authorization'] = 'Bearer $token';
       }
 
-      final response = await http.post(
-        url,
-        headers: headers,
-        body: json.encode(data),
-      );
+      _log('Request headers: $headers');
+
+      final response = await http
+          .post(url, headers: headers, body: json.encode(data))
+          .timeout(
+            timeout,
+            onTimeout: () {
+              _log('POST request timed out after ${timeout.inSeconds} seconds');
+              throw TimeoutException('Request timed out');
+            },
+          );
 
       _log('Response status: ${response.statusCode}');
+      _log('Response body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         if (response.body.isEmpty) {
@@ -193,10 +250,19 @@ class ApiService {
         await LocalStorage.clearToken();
         throw Exception('Unauthorized');
       } else {
-        developer.log(
-          'Error response: ${response.statusCode} - ${response.body}',
-        );
-        return null;
+        // Log error response dari server
+        developer.log('ERROR RESPONSE: Status ${response.statusCode}');
+        developer.log('ERROR BODY: ${response.body}');
+
+        // Coba parse error message dari response body
+        try {
+          final errorData = json.decode(response.body);
+          if (errorData is Map && errorData.containsKey('message')) {
+            throw Exception('Server error: ${errorData['message']}');
+          }
+        } catch (_) {}
+
+        throw Exception('Server error: ${response.statusCode}');
       }
     } catch (e) {
       developer.log('Network error: $e');

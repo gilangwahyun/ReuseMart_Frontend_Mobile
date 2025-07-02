@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 class PegawaiModel {
   final int idPegawai;
   final int idJabatan;
@@ -22,17 +24,57 @@ class PegawaiModel {
   });
 
   factory PegawaiModel.fromJson(Map<String, dynamic> json) {
-    return PegawaiModel(
-      idPegawai: json['id_pegawai'],
-      idJabatan: json['id_jabatan'],
-      idUser: json['id_user'],
-      namaPegawai: json['nama_pegawai'],
-      tanggalLahir: json['tanggal_lahir'],
-      noTelepon: json['no_telepon'],
-      alamat: json['alamat'],
-      jabatan: json['jabatan'],
-      user: json['user'],
-    );
+    try {
+      // Helper function untuk parsing nilai yang mungkin string
+      int parseIntValue(dynamic value) {
+        if (value == null) return 0;
+        if (value is int) return value;
+        if (value is String) {
+          final result = int.tryParse(value);
+          if (result == null) {
+            developer.log(
+              'WARNING: Failed to parse "$value" as int, defaulting to 0',
+            );
+            return 0;
+          }
+          return result;
+        }
+        return 0;
+      }
+
+      final idPegawai = parseIntValue(json['id_pegawai']);
+      final idJabatan = parseIntValue(json['id_jabatan']);
+      int? idUser;
+
+      if (json['id_user'] != null) {
+        idUser = parseIntValue(json['id_user']);
+      }
+
+      return PegawaiModel(
+        idPegawai: idPegawai,
+        idJabatan: idJabatan,
+        idUser: idUser,
+        namaPegawai: json['nama_pegawai'] ?? '',
+        tanggalLahir: json['tanggal_lahir'] ?? '',
+        noTelepon: json['no_telepon'] ?? '',
+        alamat: json['alamat'] ?? '',
+        jabatan: json['jabatan'],
+        user: json['user'],
+      );
+    } catch (e) {
+      developer.log('Error parsing PegawaiModel: $e');
+      developer.log('JSON: $json');
+
+      // Return default model untuk hindari crash
+      return PegawaiModel(
+        idPegawai: 0,
+        idJabatan: 0,
+        namaPegawai: 'Error',
+        tanggalLahir: '',
+        noTelepon: '',
+        alamat: '',
+      );
+    }
   }
 
   Map<String, dynamic> toJson() {

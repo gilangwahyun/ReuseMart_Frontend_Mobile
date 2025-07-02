@@ -12,8 +12,16 @@ class UserModel {
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    // Menangani id_user yang bisa berupa string atau int
+    int parseIdUser(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
     return UserModel(
-      idUser: json['id_user'] ?? 0,
+      idUser: parseIdUser(json['id_user']),
       email: json['email'] ?? '',
       role: json['role'] ?? '',
       token: json['token'],

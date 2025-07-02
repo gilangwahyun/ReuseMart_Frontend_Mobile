@@ -91,6 +91,22 @@ class BarangModel {
       developer.log('Raw JSON:');
       developer.log(encoder.convert(json));
 
+      // Fungsi helper untuk parsing nilai numerik yang mungkin string
+      int parseIntValue(dynamic value) {
+        if (value == null) return 0;
+        if (value is int) return value;
+        if (value is String) return int.tryParse(value) ?? 0;
+        return 0;
+      }
+
+      double parseDoubleValue(dynamic value) {
+        if (value == null) return 0.0;
+        if (value is double) return value;
+        if (value is int) return value.toDouble();
+        if (value is String) return double.tryParse(value) ?? 0.0;
+        return 0.0;
+      }
+
       // Debug kategori
       developer.log('\n=== DEBUG: Parsing Kategori Barang ===');
       developer.log('ID Kategori: ${json['id_kategori']}');
@@ -193,15 +209,15 @@ class BarangModel {
 
       // Create the BarangModel
       final barang = BarangModel(
-        idBarang: json['id_barang'] ?? 0,
-        idKategori: json['id_kategori'] ?? 0,
-        idPenitipan: json['id_penitipan'] ?? 0,
+        idBarang: parseIntValue(json['id_barang']),
+        idKategori: parseIntValue(json['id_kategori']),
+        idPenitipan: parseIntValue(json['id_penitipan']),
         namaBarang: json['nama_barang'] ?? '',
         deskripsi: json['deskripsi'] ?? '',
-        harga: (json['harga'] ?? 0).toDouble(),
+        harga: parseDoubleValue(json['harga']),
         masaGaransi: json['masa_garansi'],
-        berat: json['berat'] ?? 0,
-        rating: (json['rating'] ?? 0).toDouble(),
+        berat: parseIntValue(json['berat']),
+        rating: parseDoubleValue(json['rating']),
         statusBarang: json['status_barang'] ?? 'Tersedia',
         kategori: kategoriData,
         penitipanBarang:

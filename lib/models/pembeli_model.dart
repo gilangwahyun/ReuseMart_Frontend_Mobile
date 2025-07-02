@@ -14,11 +14,25 @@ class PembeliModel {
   });
 
   factory PembeliModel.fromJson(Map<String, dynamic> json) {
+    // Menangani jumlah_poin yang bisa berupa int atau string
+    int parseJumlahPoin(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
     return PembeliModel(
-      idPembeli: json['id_pembeli'] ?? 0,
-      idUser: json['id_user'] ?? 0,
+      idPembeli:
+          json['id_pembeli'] is String
+              ? int.tryParse(json['id_pembeli']) ?? 0
+              : json['id_pembeli'] ?? 0,
+      idUser:
+          json['id_user'] is String
+              ? int.tryParse(json['id_user']) ?? 0
+              : json['id_user'] ?? 0,
       namaPembeli: json['nama_pembeli'] ?? '',
-      jumlahPoin: json['jumlah_poin'] ?? 0,
+      jumlahPoin: parseJumlahPoin(json['jumlah_poin']),
       noHpDefault: json['no_hp_default'] ?? '',
     );
   }

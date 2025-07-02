@@ -242,6 +242,8 @@ class _PembeliProfilePageState extends State<PembeliProfilePage> {
                 child: Column(
                   children: [
                     _buildProfileHeader(),
+                    _buildStatsRow(),
+                    _buildPersonalInfoSection(),
                     _buildProfileMenu(),
                     const SizedBox(height: 20),
                     Padding(

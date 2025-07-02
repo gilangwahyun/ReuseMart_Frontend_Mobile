@@ -39,7 +39,7 @@ class _HomePageState extends State<HomePage> {
 
   // Base URL untuk mengakses foto dari Laravel storage
   final String _baseUrl =
-      'https://api.reusemart.com'; // Sesuaikan dengan URL API Anda
+      'https://api.reusemartuajy.my.id'; // Sesuaikan dengan URL API Anda
 
   @override
   void initState() {

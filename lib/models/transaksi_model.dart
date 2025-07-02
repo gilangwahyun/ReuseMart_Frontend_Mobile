@@ -1,5 +1,6 @@
 import 'pembeli_model.dart';
 import 'detail_transaksi_model.dart';
+import 'dart:developer' as developer;
 
 class TransaksiModel {
   final int idTransaksi;
@@ -26,20 +27,40 @@ class TransaksiModel {
 
   factory TransaksiModel.fromJson(Map<String, dynamic> json) {
     try {
+      // Helper functions untuk parsing nilai yang mungkin string
+      int parseIntValue(dynamic value) {
+        if (value == null) return 0;
+        if (value is int) return value;
+        if (value is String) return int.tryParse(value) ?? 0;
+        return 0;
+      }
+
+      double parseDoubleValue(dynamic value) {
+        if (value == null) return 0.0;
+        if (value is double) return value;
+        if (value is int) return value.toDouble();
+        if (value is String) return double.tryParse(value) ?? 0.0;
+        return 0.0;
+      }
+
       // Parse detail transaksi jika ada
       List<DetailTransaksiModel> detailList = [];
       if (json['detail_transaksi'] != null) {
-        detailList =
-            (json['detail_transaksi'] as List)
-                .map((item) => DetailTransaksiModel.fromJson(item))
-                .toList();
+        try {
+          detailList =
+              (json['detail_transaksi'] as List)
+                  .map((item) => DetailTransaksiModel.fromJson(item))
+                  .toList();
+        } catch (e) {
+          developer.log('Error parsing detail_transaksi: $e');
+        }
       }
 
       return TransaksiModel(
-        idTransaksi: json['id_transaksi'] ?? 0,
-        idPembeli: json['id_pembeli'] ?? 0,
-        idAlamat: json['id_alamat'] ?? 0,
-        totalHarga: json['total_harga']?.toDouble(),
+        idTransaksi: parseIntValue(json['id_transaksi']),
+        idPembeli: parseIntValue(json['id_pembeli']),
+        idAlamat: parseIntValue(json['id_alamat']),
+        totalHarga: parseDoubleValue(json['total_harga']),
         statusTransaksi: json['status_transaksi'] ?? 'Menunggu Pembayaran',
         metodePengiriman: json['metode_pengiriman'] ?? 'Ambil Sendiri',
         tanggalTransaksi:
@@ -51,8 +72,8 @@ class TransaksiModel {
         detailTransaksi: detailList,
       );
     } catch (e) {
-      print('Error parsing TransaksiModel: $e');
-      print('Raw JSON: $json');
+      developer.log('Error parsing TransaksiModel: $e');
+      developer.log('Raw JSON: $json');
       // Return default model untuk hindari aplikasi crash
       return TransaksiModel(
         idTransaksi: 0,
