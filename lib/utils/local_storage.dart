@@ -7,6 +7,27 @@ class LocalStorage {
   static const String _tokenKey = 'token';
   static const String _userKey = 'user';
   static const String _profileKey = 'profile';
+  static const String _penitipIdKey = 'id_penitip';
+  static const String _pembeliIdKey = 'id_pembeli';
+  static const String _pegawaiIdKey = 'id_pegawai';
+
+  // Menyimpan string data dengan key tertentu
+  static Future<bool> saveData(String key, String value) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.setString(key, value);
+  }
+
+  // Mendapatkan string data dengan key tertentu
+  static Future<String?> getData(String key) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString(key);
+  }
+
+  // Menghapus data dengan key tertentu
+  static Future<bool> removeData(String key) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.remove(key);
+  }
 
   // Menyimpan token
   static Future<bool> saveToken(String token) async {
@@ -18,6 +39,12 @@ class LocalStorage {
   static Future<String?> getToken() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);
+  }
+
+  // Menghapus token
+  static Future<void> clearToken() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
   }
 
   // Menyimpan data user
@@ -90,6 +117,17 @@ class LocalStorage {
     return true;
   }
 
+  // Alias untuk clearAuthData - digunakan di settings page
+  static Future<bool> clearUserData() async {
+    return clearAuthData();
+  }
+
+  // Menghapus semua data tersimpan
+  static Future<bool> clearAllData() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return await prefs.clear();
+  }
+
   // Mengecek apakah sudah login
   static Future<bool> isLoggedIn() async {
     final token = await getToken();
@@ -101,5 +139,48 @@ class LocalStorage {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? profileData = prefs.getString(_profileKey);
     return profileData != null && profileData.isNotEmpty;
+  }
+
+  // Menyimpan id penitip
+  static Future<bool> savePenitipId(String idPenitip) async {
+    return saveData(_penitipIdKey, idPenitip);
+  }
+
+  // Mendapatkan id penitip
+  static Future<int?> getPenitipId() async {
+    final idPenitip = await getData(_penitipIdKey);
+    if (idPenitip != null && idPenitip.isNotEmpty) {
+      try {
+        return int.parse(idPenitip);
+      } catch (e) {
+        print("Error parsing id_penitip: $e");
+        return null;
+      }
+    }
+    return null;
+  }
+
+  // Menyimpan ID Pembeli
+  static Future<void> savePembeliId(int id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_pembeliIdKey, id);
+  }
+
+  // Mengambil ID Pembeli
+  static Future<int?> getPembeliId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_pembeliIdKey);
+  }
+
+  // Menyimpan ID Pegawai
+  static Future<void> savePegawaiId(int id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_pegawaiIdKey, id);
+  }
+
+  // Mengambil ID Pegawai
+  static Future<int?> getPegawaiId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_pegawaiIdKey);
   }
 }

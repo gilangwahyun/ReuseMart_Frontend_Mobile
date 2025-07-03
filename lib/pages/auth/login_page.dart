@@ -40,87 +40,29 @@ class _LoginPageState extends State<LoginPage> {
     final userData = await _authApi.getUserData();
 
     if (userData != null) {
-      final role = userData['role'];
+      // Print the full user data to debug
+      print("User data: $userData");
 
+      final role = userData['role'];
       print("User role: $role");
 
-      // Filtering utama berdasarkan role
-      switch (role) {
-        case 'Pembeli':
-          // Pembeli diarahkan ke halaman home untuk melihat produk
-          if (mounted) {
-            print("Navigating to home page for Pembeli");
-            AppRoutes.navigateAndClear(context, AppRoutes.home);
-          }
-          break;
+      // Check for role strings that might correspond to courier
+      if (role != null) {
+        if (role.toString().toLowerCase().contains('kurir') ||
+            role.toString().toLowerCase().contains('courier') ||
+            role == 'Kurir') {
+          print("Detected courier role: $role - navigating to courier home");
+        }
+      }
 
-        case 'Penitip':
-          // Penitip langsung diarahkan ke halaman profile penitip
-          if (mounted) {
-            print("Navigating to penitip profile page");
-            AppRoutes.navigateAndClear(context, AppRoutes.penitipProfile);
-          }
-          break;
-
-        case 'Pegawai':
-          try {
-            final jabatanResponse = await _authApi.getProfile();
-            final idJabatan = jabatanResponse['data']['id_jabatan'];
-
-            switch (idJabatan) {
-              case 1:
-                if (mounted)
-                  AppRoutes.navigateAndClear(context, '/dashboard_owner');
-                break;
-              case 2:
-                if (mounted)
-                  AppRoutes.navigateAndClear(context, '/dashboard_admin');
-                break;
-              case 3:
-                if (mounted)
-                  AppRoutes.navigateAndClear(
-                    context,
-                    '/dashboard_pegawai_gudang',
-                  );
-                break;
-              case 4:
-                if (mounted)
-                  AppRoutes.navigateAndClear(context, '/dashboard_cs');
-                break;
-              case 5:
-                if (mounted)
-                  AppRoutes.navigateAndClear(context, '/dashboard_hunter');
-                break;
-              case 6:
-                if (mounted)
-                  AppRoutes.navigateAndClear(context, '/dashboard_kurir');
-                break;
-              default:
-                if (mounted)
-                  AppRoutes.navigateAndClear(context, '/dashboard_pegawai');
-            }
-          } catch (error) {
-            print("Error getting jabatan: $error");
-            if (mounted) AppRoutes.navigateAndClear(context, AppRoutes.home);
-          }
-          break;
-
-        case 'Organisasi':
-          if (mounted)
-            AppRoutes.navigateAndClear(context, '/dashboard_organisasi');
-          break;
-
-        default:
-          // Default ke halaman home untuk role yang tidak dikenal
-          if (mounted) {
-            print("Unknown role: $role, navigating to home page");
-            AppRoutes.navigateAndClear(context, AppRoutes.home);
-          }
+      if (mounted) {
+        // Navigate based on role
+        AppRoutes.navigateToMainFlow(context, true, role, userData);
       }
     } else {
       if (mounted) {
-        print("No user data found, navigating to home page");
-        AppRoutes.navigateAndClear(context, AppRoutes.home);
+        print("No user data found, navigating to login page");
+        AppRoutes.navigateToMainFlow(context, false);
       }
     }
   }
@@ -146,7 +88,10 @@ class _LoginPageState extends State<LoginPage> {
         });
 
         if (response != null && response['token'] != null) {
-          // Tampilkan pesan sukses
+          // Print the login response for debugging
+          print("Login response: $response");
+
+          // Show success message
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Login berhasil!'),
@@ -154,10 +99,10 @@ class _LoginPageState extends State<LoginPage> {
             ),
           );
 
-          // Tunggu pesan sukses muncul, lalu navigasi ke halaman sesuai role
+          // Wait for success message to appear, then navigate to appropriate dashboard
           await Future.delayed(const Duration(seconds: 2));
 
-          // Navigasi ke dashboard sesuai dengan role user
+          // Navigate to dashboard based on user role
           await _navigateToCorrectDashboard();
         } else {
           setState(() {

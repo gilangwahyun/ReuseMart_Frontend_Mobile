@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 import '../utils/local_storage.dart';
+import '../services/firebase_service.dart';
 import 'api_service.dart';
 import 'user_api.dart';
 
@@ -31,8 +32,19 @@ class AuthApi {
           // Simpan juga data sebagai Map untuk akses mudah
           await LocalStorage.saveUserMap(userData);
 
+          // Jika ada id_pembeli, simpan secara terpisah
+          if (userData['id_pembeli'] != null) {
+            await LocalStorage.savePembeliId(
+              int.parse(userData['id_pembeli'].toString()),
+            );
+            print('ID pembeli berhasil disimpan: ${userData['id_pembeli']}');
+          }
+
           // Log berhasil menyimpan data
           print('Token dan data user berhasil disimpan');
+
+          // Register FCM token ke server setelah login
+          _registerFcmToken(response['token']);
 
           // Coba ambil data profil lengkap
           try {
@@ -58,6 +70,26 @@ class AuthApi {
     }
   }
 
+  // Register FCM Token ke server setelah login
+  Future<void> _registerFcmToken(String authToken) async {
+    try {
+      // Ambil token FCM
+      final fcmToken = await FirebaseService.getToken();
+
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        // Kirim ke server
+        print('Mengirim FCM token ke server setelah login...');
+        await FirebaseService.sendTokenToServer(fcmToken, authToken);
+
+        // Setup listener untuk perubahan token
+        FirebaseService.setupTokenRefreshListener(authToken);
+      }
+    } catch (e) {
+      print('Error saat mengirim FCM token setelah login: $e');
+      // Tidak throw exception agar tidak menghentikan proses login
+    }
+  }
+
   // Logout
   Future<dynamic> logout() async {
     try {
@@ -71,6 +103,32 @@ class AuthApi {
     } catch (error) {
       print("Logout error: $error");
       throw error;
+    }
+  }
+
+  // Force logout (tanpa memanggil API)
+  Future<void> forceLogout() async {
+    try {
+      // Hapus semua data yang tersimpan
+      await clearAllCacheData();
+      print("Force logout berhasil, semua cache dihapus");
+    } catch (e) {
+      print("Error saat force logout: $e");
+      throw e;
+    }
+  }
+
+  // Clear semua cache data
+  Future<void> clearAllCacheData() async {
+    try {
+      await LocalStorage.clearAllData();
+      // Tambahkan penghapusan spesifik untuk memastikan
+      await LocalStorage.removeData('id_penitip');
+      await LocalStorage.removeData('id_pembeli');
+      print("Semua data cache berhasil dihapus");
+    } catch (e) {
+      print("Error saat menghapus cache: $e");
+      throw e;
     }
   }
 

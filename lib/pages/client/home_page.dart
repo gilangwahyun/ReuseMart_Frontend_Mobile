@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import '../../api/barang_api.dart';
 import '../../api/kategori_barang_api.dart';
 import '../../api/foto_barang_api.dart';
-import '../../components/layouts/base_layout.dart';
+import '../../api/api_service.dart';
 import '../../models/barang_model.dart';
 import '../../models/kategori_barang_model.dart';
 import '../../models/foto_barang_model.dart';
 import '../../routes/app_routes.dart';
 import '../../utils/local_storage.dart';
+import '../../widgets/notification_icon.dart';
+import '../../pages/client/barang_detail_pembeli_page.dart'; // Pastikan path import benar
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final bool isEmbedded;
+
+  const HomePage({super.key, this.isEmbedded = false});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -25,6 +29,7 @@ class _HomePageState extends State<HomePage> {
   final BarangApi _barangApi = BarangApi();
   final KategoriBarangApi _kategoriApi = KategoriBarangApi();
   final FotoBarangApi _fotoApi = FotoBarangApi();
+  final ApiService _apiService = ApiService();
 
   List<BarangModel>? _barangList;
   Map<int, FotoBarangModel?> _thumbnails = {};
@@ -34,27 +39,65 @@ class _HomePageState extends State<HomePage> {
 
   // Base URL untuk mengakses foto dari Laravel storage
   final String _baseUrl =
-      'https://api.reusemart.com'; // Sesuaikan dengan URL API Anda
+      'https://api.reusemartuajy.my.id'; // Sesuaikan dengan URL API Anda
 
   @override
   void initState() {
     super.initState();
+    print('=== DEBUG: HomePage initState ===');
     _loadKategori();
   }
 
   Future<void> _loadKategori() async {
+    print('=== DEBUG: _loadKategori started ===');
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
+      print('Mencoba mengambil data kategori...');
       final response = await _kategoriApi.getAllKategori();
+      print('Response kategori: $response');
 
-      if (response != null && response['data'] != null) {
-        List<dynamic> data = response['data'];
-        List<KategoriBarangModel> categories =
-            data.map((item) => KategoriBarangModel.fromJson(item)).toList();
+      // Periksa apakah response adalah array langsung atau objek dengan properti 'data'
+      List<dynamic> data;
+      if (response is List) {
+        // Response adalah array langsung
+        data = response;
+      } else if (response is Map && response['data'] != null) {
+        // Response adalah objek dengan properti 'data'
+        data = response['data'];
+      } else {
+        print('Format response tidak valid: $response');
+        setState(() {
+          _errorMessage = 'Format data kategori tidak valid';
+          _isLoading = false;
+        });
+
+        // Jika gagal memuat kategori, tetap load barang
+        print('Gagal memuat kategori, tetap mencoba memuat barang...');
+        await _loadBarang();
+        return;
+      }
+
+      print('Data kategori: $data');
+
+      // Pastikan data adalah List dan tidak kosong
+      if (data.isNotEmpty) {
+        List<KategoriBarangModel> categories = [];
+
+        // Parsing data dengan error handling
+        for (var item in data) {
+          try {
+            categories.add(KategoriBarangModel.fromJson(item));
+          } catch (e) {
+            print('Error parsing kategori: $e');
+            print('Item yang error: $item');
+          }
+        }
+
+        print('Berhasil parse ${categories.length} kategori');
 
         setState(() {
           _categories = categories;
@@ -63,14 +106,26 @@ class _HomePageState extends State<HomePage> {
             ..._categories.map((e) => e.namaKategori).toList(),
           ];
         });
-
-        // Setelah kategori dimuat, muat barang
-        await _loadBarang();
+      } else {
+        print('Data kategori kosong: $data');
+        setState(() {
+          _errorMessage = 'Data kategori kosong';
+        });
       }
-    } catch (e) {
+
+      // Setelah kategori dimuat, muat barang
+      print('Memuat barang setelah kategori...');
+      await _loadBarang();
+    } catch (e, stack) {
+      print('Exception saat memuat kategori: $e');
+      print('Stack trace: $stack');
       setState(() {
         _errorMessage = 'Gagal memuat kategori: ${e.toString()}';
       });
+
+      // Jika gagal memuat kategori, tetap load barang
+      print('Gagal memuat kategori, tetap mencoba memuat barang...');
+      await _loadBarang();
     } finally {
       setState(() {
         _isLoading = false;
@@ -79,6 +134,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadBarang() async {
+    print('=== DEBUG: _loadBarang started ===');
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -86,56 +142,133 @@ class _HomePageState extends State<HomePage> {
 
     try {
       dynamic response;
+      print('Current index: $_currentIndex');
 
       if (_currentIndex == 0) {
         // Ambil semua barang
+        print('Mengambil semua barang aktif...');
         response = await _barangApi.getAllActiveBarang();
       } else {
         // Ambil barang berdasarkan kategori
-        String kategori = _categoriesName[_currentIndex];
-        response = await _barangApi.getBarangByKategori(kategori);
+        // Pastikan _currentIndex valid dan tidak melebihi panjang _categories
+        if (_currentIndex > 0 && _currentIndex <= _categories.length) {
+          // Gunakan ID kategori, bukan nama kategori
+          int idKategori =
+              _categories[_currentIndex - 1]
+                  .idKategori; // -1 karena indeks 0 adalah "Semua"
+          print('Mengambil barang untuk kategori ID: $idKategori');
+          response = await _barangApi.getBarangByKategoriId(idKategori);
+        } else {
+          // Fallback ke semua barang jika indeks tidak valid
+          print('Indeks tidak valid, mengambil semua barang...');
+          response = await _barangApi.getAllActiveBarang();
+        }
       }
+
+      print('Response barang: $response');
 
       if (response != null && response['data'] != null) {
         List<dynamic> data = response['data'];
-        List<BarangModel> barangList =
-            data.map((item) => BarangModel.fromJson(item)).toList();
+        print('Jumlah data barang: ${data.length}');
 
+        List<BarangModel> barangList = [];
+        for (var item in data) {
+          try {
+            barangList.add(BarangModel.fromJson(item));
+          } catch (e) {
+            print('Error parsing barang: $e');
+            print('Item yang error: $item');
+          }
+        }
+
+        print('Berhasil parse ${barangList.length} barang');
+
+        // Set state untuk menampilkan barang terlebih dahulu
         setState(() {
           _barangList = barangList;
-          _thumbnails.clear(); // Reset thumbnail cache
+          _isLoading = false;
         });
 
-        // Load thumbnails for each barang
+        // Load thumbnails setelah barang ditampilkan
+        print('Memuat thumbnails untuk ${barangList.length} barang...');
         _loadThumbnails(barangList);
+      } else {
+        print('Response barang tidak valid atau kosong');
+        setState(() {
+          _barangList = [];
+          _isLoading = false;
+        });
       }
     } catch (e) {
+      print('Error saat memuat barang: $e');
       setState(() {
         _errorMessage = 'Gagal memuat barang: ${e.toString()}';
-      });
-    } finally {
-      setState(() {
         _isLoading = false;
       });
     }
   }
 
   Future<void> _loadThumbnails(List<BarangModel> barangList) async {
-    for (var barang in barangList) {
-      try {
-        final thumbnail = await _fotoApi.getThumbnailFoto(barang.idBarang);
+    print('=== DEBUG: _loadThumbnails started ===');
+    print('Jumlah barang untuk load thumbnail: ${barangList.length}');
+
+    // Batasi jumlah barang yang akan dimuat thumbnailnya untuk performa
+    final limitedList = barangList.take(8).toList();
+    print('Dibatasi hanya ${limitedList.length} barang untuk performa');
+
+    // Gunakan Future.wait untuk memuat thumbnail secara paralel
+    try {
+      await Future.wait(
+        limitedList.map((barang) => _loadSingleThumbnail(barang)),
+        eagerError: false,
+      );
+      print('Selesai memuat semua thumbnail');
+    } catch (e) {
+      print('Error saat memuat thumbnail secara paralel: $e');
+    }
+  }
+
+  Future<void> _loadSingleThumbnail(BarangModel barang) async {
+    try {
+      print('Memuat thumbnail untuk barang ID: ${barang.idBarang}');
+      final fotos = await _fotoApi.getFotoBarangByIdBarang(barang.idBarang);
+      print(
+        'Berhasil mendapatkan ${fotos.length} foto untuk barang ID: ${barang.idBarang}',
+      );
+
+      if (fotos.isNotEmpty) {
+        // Pilih foto dengan is_thumbnail === true
+        final thumbnail = fotos.firstWhere(
+          (f) => f.isThumbnail,
+          orElse: () {
+            // Fallback ke foto pertama (id_foto_barang terkecil)
+            final sortedFotos = List.from(fotos)
+              ..sort((a, b) => a.idFotoBarang.compareTo(b.idFotoBarang));
+            return sortedFotos.first;
+          },
+        );
+
+        print('Thumbnail URL: ${thumbnail.urlFoto}');
 
         if (mounted) {
           setState(() {
             _thumbnails[barang.idBarang] = thumbnail;
           });
+
+          // Preload image
+          _preloadImage(thumbnail.urlFoto);
         }
-      } catch (e) {
-        print(
-          'Gagal memuat thumbnail untuk barang ${barang.idBarang}: ${e.toString()}',
-        );
+      } else {
+        print('Tidak ada foto untuk barang ID: ${barang.idBarang}');
       }
+    } catch (e) {
+      print('Gagal memuat thumbnail untuk barang ${barang.idBarang}: $e');
     }
+  }
+
+  void _preloadImage(String url) {
+    final imageUrl = _apiService.getImageUrl(url);
+    precacheImage(NetworkImage(imageUrl), context);
   }
 
   void _onCategorySelected(int index) {
@@ -176,12 +309,12 @@ class _HomePageState extends State<HomePage> {
       final role = userData['role'];
 
       if (role == 'Pembeli') {
-        AppRoutes.navigateAndReplace(context, AppRoutes.pembeliProfile);
+        AppRoutes.navigateAndReplace(context, AppRoutes.pembeliContainer);
       } else if (role == 'Penitip') {
         AppRoutes.navigateAndReplace(context, AppRoutes.penitipProfile);
       } else {
         // Jika role tidak dikenal, gunakan profil pembeli sebagai default
-        AppRoutes.navigateAndReplace(context, AppRoutes.pembeliProfile);
+        AppRoutes.navigateAndReplace(context, AppRoutes.pembeliContainer);
       }
     } else {
       // Jika tidak ada data user, arahkan ke halaman login
@@ -189,8 +322,28 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _navigateToDetail(int idBarang) {
+    // Navigasi ke halaman detail barang
+    print("DEBUG: Navigating to detail page for barang ID: $idBarang");
+    try {
+      // Gunakan BarangDetailPembeliPage untuk pembeli umum
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BarangDetailPembeliPage(idBarang: idBarang),
+        ),
+      );
+      print("DEBUG: Navigation method called successfully");
+    } catch (e) {
+      print("DEBUG ERROR: Failed to navigate: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Use widget.isEmbedded instead of checking route
+    final bool isEmbedded = widget.isEmbedded;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(''),
@@ -203,10 +356,7 @@ class _HomePageState extends State<HomePage> {
           },
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
-          ),
+          NotificationIcon(color: Colors.white, badgeColor: Colors.amber),
         ],
       ),
       body: Column(
@@ -325,25 +475,38 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
                     )
-                    : _buildBarangGrid(),
+                    : _buildProductGrid(),
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedNavIndex,
-        onTap: _onNavBarTapped,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.green.shade700,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Beranda'),
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Cari'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: 'Keranjang',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
-        ],
-      ),
+      // Only show bottom navigation when not embedded in container
+      bottomNavigationBar:
+          isEmbedded
+              ? null
+              : BottomNavigationBar(
+                currentIndex: _selectedNavIndex,
+                onTap: _onNavBarTapped,
+                type: BottomNavigationBarType.fixed,
+                selectedItemColor: Colors.green.shade700,
+                items: const [
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.home),
+                    label: 'Beranda',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.search),
+                    label: 'Cari',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.shopping_cart),
+                    label: 'Keranjang',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.person),
+                    label: 'Profil',
+                  ),
+                ],
+              ),
     );
   }
 
@@ -404,6 +567,18 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildCategoryList() {
+    // Jika belum ada kategori, tampilkan indikator loading
+    if (_categoriesName.isEmpty) {
+      return SizedBox(
+        height: 110,
+        child: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade600),
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
       height: 110,
       child: ListView.builder(
@@ -411,6 +586,11 @@ class _HomePageState extends State<HomePage> {
         itemCount: _categoriesName.length,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemBuilder: (context, index) {
+          // Pastikan index valid
+          if (index < 0 || index >= _categoriesName.length) {
+            return const SizedBox.shrink();
+          }
+
           return GestureDetector(
             onTap: () => _onCategorySelected(index),
             child: Container(
@@ -489,7 +669,7 @@ class _HomePageState extends State<HomePage> {
     ];
 
     // Pastikan tidak out of range
-    if (index < icons.length) {
+    if (index >= 0 && index < icons.length) {
       return icons[index];
     }
 
@@ -497,12 +677,32 @@ class _HomePageState extends State<HomePage> {
     return Icons.category;
   }
 
-  Widget _buildBarangGrid() {
+  Widget _buildProductGrid() {
+    if (_barangList == null || _barangList!.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inventory_2_outlined,
+              size: 80,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Tidak ada barang tersedia',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+
     return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.68,
+        childAspectRatio: 0.7,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -512,51 +712,39 @@ class _HomePageState extends State<HomePage> {
         final thumbnail = _thumbnails[barang.idBarang];
 
         return Card(
-          clipBehavior: Clip.antiAlias,
           elevation: 2,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: InkWell(
+            borderRadius: BorderRadius.circular(10),
             onTap: () {
-              // Navigate to barang detail
+              _navigateToDetail(barang.idBarang);
             },
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Stack(
                   children: [
-                    // Image
-                    SizedBox(
-                      height: 140,
-                      width: double.infinity,
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(10),
+                      ),
                       child:
                           thumbnail != null
                               ? Image.network(
-                                '$_baseUrl/${thumbnail.urlFoto}',
+                                _apiService.getImageUrl(thumbnail.urlFoto),
+                                height: 130,
+                                width: double.infinity,
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) {
                                   print('Error loading image: $error');
-                                  return Container(
-                                    color: Colors.grey.shade200,
-                                    child: Icon(
-                                      Icons.image_not_supported,
-                                      size: 40,
-                                      color: Colors.grey.shade500,
-                                    ),
-                                  );
+                                  return _buildNoImage(130);
                                 },
                               )
-                              : Container(
-                                color: Colors.grey.shade200,
-                                child: Icon(
-                                  Icons.image_not_supported,
-                                  size: 40,
-                                  color: Colors.grey.shade500,
-                                ),
-                              ),
+                              : _buildNoImage(130),
                     ),
-                    // Kondisi sebagai badge
+                    // Status badge
                     Positioned(
                       top: 8,
                       right: 8,
@@ -566,23 +754,65 @@ class _HomePageState extends State<HomePage> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.9),
+                          color: _getStatusColor(barang.statusBarang),
                           borderRadius: BorderRadius.circular(12),
                         ),
+                        child: Text(
+                          barang.statusBarang == 'Aktif'
+                              ? 'Tersedia'
+                              : barang.statusBarang,
+                          style: TextStyle(
+                            color: _getStatusTextColor(barang.statusBarang),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Warranty badge
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        color: Colors.black.withOpacity(0.6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
-                              Icons.star,
-                              color: Colors.amber,
-                              size: 12,
+                            Icon(
+                              barang.masaGaransi != null &&
+                                      barang.masaGaransi!.isNotEmpty
+                                  ? Icons.verified_outlined
+                                  : Icons.not_interested,
+                              color:
+                                  barang.masaGaransi != null &&
+                                          barang.masaGaransi!.isNotEmpty
+                                      ? Colors.green.shade300
+                                      : Colors.grey.shade400,
+                              size: 14,
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              barang.kondisiBarang ?? 'Baik',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                            Expanded(
+                              child: Text(
+                                barang.masaGaransi != null &&
+                                        barang.masaGaransi!.isNotEmpty
+                                    ? 'Garansi: ${barang.masaGaransi}'
+                                    : 'Tanpa Garansi',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight:
+                                      barang.masaGaransi != null &&
+                                              barang.masaGaransi!.isNotEmpty
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -608,7 +838,9 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          barang.kategoriNama ?? 'Umum',
+                          barang.kategori?.namaKategori ??
+                              _getCategoryNameById(barang.idKategori) ??
+                              'Umum',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey.shade600,
@@ -635,8 +867,23 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  String _formatRupiah(int price) {
-    String priceStr = price.toString();
+  Widget _buildNoImage(double height) {
+    return Container(
+      height: height,
+      color: Colors.grey.shade200,
+      child: Center(
+        child: Icon(
+          Icons.image_not_supported,
+          size: 40,
+          color: Colors.grey.shade500,
+        ),
+      ),
+    );
+  }
+
+  String _formatRupiah(double price) {
+    int priceInt = price.toInt(); // Konversi ke int
+    String priceStr = priceInt.toString();
     String result = '';
     int count = 0;
 
@@ -649,6 +896,40 @@ class _HomePageState extends State<HomePage> {
     }
 
     return result;
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'aktif':
+        return Colors.green.shade100;
+      case 'non-aktif':
+        return Colors.grey.shade200;
+      case 'terjual':
+      case 'habis':
+        return Colors.blue.shade100;
+      case 'barang untuk donasi':
+      case 'barang sudah didonasikan':
+        return Colors.amber.shade100;
+      default:
+        return Colors.grey.shade200;
+    }
+  }
+
+  Color _getStatusTextColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'aktif':
+        return Colors.green.shade800;
+      case 'non-aktif':
+        return Colors.grey.shade800;
+      case 'terjual':
+      case 'habis':
+        return Colors.blue.shade800;
+      case 'barang untuk donasi':
+      case 'barang sudah didonasikan':
+        return Colors.amber.shade800;
+      default:
+        return Colors.grey.shade800;
+    }
   }
 
   // Menampilkan drawer menu
@@ -744,10 +1025,10 @@ class _HomePageState extends State<HomePage> {
                         title: const Text('Riwayat Transaksi'),
                         onTap: () {
                           Navigator.pop(context);
-                          // Navigasi ke halaman riwayat transaksi
+                          // Navigasi ke halaman profil
                           AppRoutes.navigateTo(
                             context,
-                            AppRoutes.riwayatTransaksi,
+                            AppRoutes.pembeliContainer,
                           );
                         },
                       ),
@@ -775,6 +1056,7 @@ class _HomePageState extends State<HomePage> {
                         onTap: () {
                           Navigator.pop(context);
                           // Navigasi ke halaman pengaturan
+                          Navigator.pushNamed(context, AppRoutes.settings);
                         },
                       ),
                     ],
@@ -784,5 +1066,20 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
     );
+  }
+
+  // Mendapatkan nama kategori berdasarkan ID
+  String? _getCategoryNameById(int idKategori) {
+    // Cari kategori berdasarkan ID
+    try {
+      final category = _categories.firstWhere(
+        (cat) => cat.idKategori == idKategori,
+        orElse: () => throw Exception('Kategori tidak ditemukan'),
+      );
+      return category.namaKategori;
+    } catch (e) {
+      print('Kategori dengan ID $idKategori tidak ditemukan: $e');
+      return null;
+    }
   }
 }

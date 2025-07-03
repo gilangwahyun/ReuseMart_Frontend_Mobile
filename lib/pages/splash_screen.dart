@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../models/user_model.dart';
 import '../routes/app_routes.dart';
 import '../utils/local_storage.dart';
+import '../api/auth_api.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -11,6 +13,8 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  final AuthApi _authApi = AuthApi();
+
   @override
   void initState() {
     super.initState();
@@ -23,13 +27,37 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    // Cek apakah user sudah login
-    final bool isLoggedIn = await LocalStorage.isLoggedIn();
+    try {
+      // Cek apakah user sudah login secara ketat (validasi dengan API)
+      final bool isLoggedIn = await _authApi.isLoggedIn();
+      print("Status login (API validation): $isLoggedIn");
 
-    if (!mounted) return;
+      // Jika sudah login, dapatkan role user
+      String? userRole;
+      if (isLoggedIn) {
+        final user = await LocalStorage.getUser();
+        userRole = user?.role;
+        print("User role: $userRole");
+      } else {
+        // Jika token tidak valid, hapus semua data cache
+        print("Token tidak valid, membersihkan cache...");
+        await _authApi.clearAllCacheData();
+      }
 
-    // Gunakan fungsi baru untuk navigasi berdasarkan status login
-    AppRoutes.navigateToMainFlow(context, isLoggedIn);
+      if (!mounted) return;
+
+      // Gunakan fungsi baru untuk navigasi berdasarkan status login dan role
+      AppRoutes.navigateToMainFlow(context, isLoggedIn, userRole);
+    } catch (e) {
+      print("Error checking login: $e");
+      // Jika terjadi error, hapus semua data cache untuk menghindari loop
+      await _authApi.clearAllCacheData();
+
+      if (!mounted) return;
+
+      // Arahkan ke login page jika terjadi error
+      AppRoutes.navigateToMainFlow(context, false, null);
+    }
   }
 
   @override
